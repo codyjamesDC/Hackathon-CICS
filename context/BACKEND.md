@@ -12,54 +12,53 @@ Hono API server on Node.js. Handles business logic, consumption velocity engine,
 backend/
 ├── src/
 │   ├── index.ts                     # Hono app entry point, mount routes
-│   ├── env.ts                       # Environment variable validation
 │   │
-│   ├── db/                          # Drizzle ORM setup
+│   ├── common/                      # Shared utilities across modules
+│   │   └── utils/
+│   │       ├── drizzle.ts           # Timestamp definitions, formatting
+│   │       └── exceptions.ts        # Standardized HTTP error factories
+│   │
+│   ├── db/                          # Database configuration
 │   │   ├── client.ts                # Drizzle instance + Supabase connection
-│   │   ├── schema/                  # Table definitions
-│   │   │   ├── users.ts
-│   │   │   ├── rhu.ts
-│   │   │   ├── medicines.ts
-│   │   │   ├── stock-entries.ts
-│   │   │   ├── consumption-baselines.ts
-│   │   │   ├── threshold-breaches.ts
-│   │   │   ├── requisitions.ts
-│   │   │   ├── requisition-items.ts
-│   │   │   ├── audit-log.ts
-│   │   │   └── index.ts             # Re-export all schemas
-│   │   └── migrations/              # Drizzle Kit migration files
+│   │   └── schema/
+│   │       └── index.ts             # Barrel export for Drizzle Kit
 │   │
-│   ├── routes/                      # Hono route handlers
-│   │   ├── auth.ts                  # Login, token refresh
-│   │   ├── stock-entries.ts         # CRUD + sync endpoint
-│   │   ├── medicines.ts             # Medicine catalog
-│   │   ├── rhu.ts                   # RHU registry
-│   │   ├── dashboard.ts             # MHO dashboard data (PostGIS)
-│   │   ├── requisitions.ts          # Requisition CRUD + approve
-│   │   ├── alerts.ts                # Breach + anomaly + participation alerts
-│   │   └── audit.ts                 # Audit trail read-only
+│   ├── stock-entries/               # Feature Module Structure (4-Layer)
+│   │   ├── stock-entries.controller.ts
+│   │   ├── stock-entries.dto.ts     # Zod validation schemas
+│   │   ├── stock-entries.service.ts
+│   │   ├── stock-entries.repository.ts
+│   │   └── stock-entries.schema.ts  # Co-located Drizzle schema
 │   │
-│   ├── services/                    # Business logic
-│   │   ├── velocity-engine.ts       # Consumption velocity calculations
-│   │   ├── anomaly-detection.ts     # Demand spike detection
-│   │   ├── requisition-service.ts   # Auto-draft, approve, email workflow
-│   │   ├── participation-monitor.ts # Silent RHU detection
-│   │   ├── audit-service.ts         # Append audit log entries
-│   │   └── email-service.ts         # PDF email dispatch
-│   │
-│   ├── middleware/                   # Hono middleware
-│   │   ├── auth.ts                  # JWT verification, attach user to context
-│   │   └── role-guard.ts            # Role-based access control
-│   │
-│   └── utils/                       # Shared utilities
-│       ├── errors.ts                # Custom error classes
-│       └── pdf-generator.ts         # Requisition PDF generation
+│   ├── requisitions/                # Auto-draft, approval workflow
+│   ├── alerts/                      # Threshold breaches
+│   ├── medicines/                   # Medicine catalog
+│   ├── rhu/                         # Rural Health Units
+│   ├── users/                       # Nurses and MHOs (Auth)
+│   ├── audit/                       # Append-only logging
+│   ├── dashboard/                   # MHO Heatmap and summary stats
+│   ├── velocity-engine/             # Core predictive engine
+│   ├── anomaly-detection/           # Spike detection
+│   └── participation-monitor/       # Silent RHU detection
 │
 ├── drizzle.config.ts                # Drizzle Kit config
 ├── package.json
-├── tsconfig.json
-└── .env                             # Environment variables (git-ignored)
+├── tsconfig.json                    # Strict type-checking, NodeNext resolution
+└── .env.example                     # Environment template
 ```
+
+---
+
+## Architecture Pattern (4-Layer)
+
+The backend follows a strict 4-layer structure to separate concerns, adapted from standard `@kubo` module patterns for clarity:
+
+1. **Controller Layer (`*.controller.ts`)**: Defines Hono HTTP routes, uses `@hono/zod-validator` combined with Zod DTOs (`*.dto.ts`) to strictly validate POST/PUT payload structures, and calls the appropriate Service. DTOs are lightweight and only applied to routes accepting user input.
+2. **Service Layer (`*.service.ts`)**: Orchestrates business logic, makes external API calls (e.g. email, PDF gen), triggers other engines (like `velocity-engine`), and calls the Repository.
+3. **Repository Layer (`*.repository.ts`)**: The ONLY place where Drizzle ORM `.select()`, `.insert()`, etc. are executed. Abstracts database operations entirely from business logic.
+4. **Schema Layer (`*.schema.ts`)**: Drizzle table definitions and TS type inference, now co-located directly inside the feature module.
+
+This guarantees that routes don't contain SQL queries, and database updates instantly trigger audit logs and engines without spaghetti code.
 
 ---
 

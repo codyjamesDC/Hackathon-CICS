@@ -47,3 +47,5 @@ app.*.map.json
 # Node modules
 node_modules/
 frontend/build/
+kubo/
+backend/.env
