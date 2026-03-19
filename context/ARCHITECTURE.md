@@ -95,7 +95,7 @@ Hackathon-CICS/
 | `tailwindcss` v4 | Utility-first styling for hyper-rapid aesthetic prototyping (oklch colors) |
 | `shadcn-svelte` | Beautiful, accessible component ecosystem based on `bits-ui` Headless architecture |
 | `tailwind-variants` | Component variant styling API used alongside clsx/tailwind-merge |
-| `leaflet`| Core spatial rendering library for displaying the PostGIS interactive Heatmap natively on web |
+| `maplibre-gl`| Core WebGL spatial rendering engine for displaying the PostGIS interactive Heatmap natively on web |
 | `lucide-svelte` | High quality SVG icon pack |
 | `mode-watcher` & `svelte-sonner` | Dark/light theme toggling and toast notifications |
 

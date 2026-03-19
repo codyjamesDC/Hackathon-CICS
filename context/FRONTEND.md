@@ -190,8 +190,8 @@ dashboard/
 │           └── [id]/             # Specific RHU Inventory Drill-down views
 ```
 
-### Mapbox / Leaflet Integration
-Unlike Flutter's restricted `flutter_map`, navigating spatial PostGIS boundaries natively through Svelte `onMount` bindings guarantees top-tier performance for the `GET /api/dashboard/heatmap` response.
+### MapLibre GL WebGL Integration
+Unlike Flutter's restricted `flutter_map`, navigating spatial PostGIS boundaries natively via `maplibre-gl` GPU-accelerated WebGL shaders through Svelte `onMount` bindings guarantees top-tier performance for the `GET /api/dashboard/heatmap` response.
 
 ### TypeScript Monorepo Advantage
 The `dashboard` and `backend` are both node-based TypeScript workspaces. The frontend fetches raw typed endpoints and guarantees compile-time safety against the Drizzle Database model definitions saving colossal scaffolding cycles.

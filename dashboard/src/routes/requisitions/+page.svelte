@@ -1,6 +1,5 @@
 <script lang="ts">
   import { 
-    FileText, 
     Filter,
     ChevronRight,
     Clock,
@@ -11,14 +10,16 @@
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
+  import type { PageData } from './$types';
   
-  // Mock Data
-  const requisitions = [
-    { id: "req-1", rhuName: "Barangay San Jose RHU", status: "drafted", itemsCount: 2, draftedAt: "10 mins ago" },
-    { id: "req-2", rhuName: "Barangay Mabini RHU", status: "approved", itemsCount: 5, draftedAt: "2 hours ago" },
-    { id: "req-3", rhuName: "Barangay Poblacion RHU", status: "sent", itemsCount: 1, draftedAt: "1 day ago" },
-    { id: "req-4", rhuName: "Barangay Rizal RHU", status: "drafted", itemsCount: 3, draftedAt: "5 mins ago" },
-  ];
+  let { data }: { data: PageData } = $props();
+
+  let activeTab = $state<'all' | 'drafted' | 'approved' | 'sent'>('all');
+
+  let reqs = $derived(data.requisitions);
+  let filteredReqs = $derived(
+    activeTab === 'all' ? reqs : reqs.filter(r => r.status === activeTab)
+  );
 </script>
 
 <div class="flex flex-col gap-6">
@@ -37,10 +38,25 @@
   <Card.Root>
     <Card.Header>
       <div class="flex gap-4 border-b pb-4 mb-4">
-        <div class="text-sm font-medium text-foreground border-b-2 border-primary pb-4 -mb-[18px]">All Requests</div>
-        <div class="text-sm font-medium text-muted-foreground pb-4 cursor-pointer hover:text-foreground">Drafted (2)</div>
-        <div class="text-sm font-medium text-muted-foreground pb-4 cursor-pointer hover:text-foreground">Approved (1)</div>
-        <div class="text-sm font-medium text-muted-foreground pb-4 cursor-pointer hover:text-foreground">Sent to PHO (1)</div>
+        <button 
+          onclick={() => activeTab = 'all'} 
+          class="text-sm font-medium pb-4 -mb-[18px] transition-colors {activeTab === 'all' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}"
+        >All Requests ({reqs.length})</button>
+        
+        <button 
+          onclick={() => activeTab = 'drafted'} 
+          class="text-sm font-medium pb-4 -mb-[18px] transition-colors {activeTab === 'drafted' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}"
+        >Drafted ({reqs.filter(r => r.status === 'drafted').length})</button>
+        
+        <button 
+          onclick={() => activeTab = 'approved'} 
+          class="text-sm font-medium pb-4 -mb-[18px] transition-colors {activeTab === 'approved' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}"
+        >Approved ({reqs.filter(r => r.status === 'approved').length})</button>
+
+        <button 
+          onclick={() => activeTab = 'sent'} 
+          class="text-sm font-medium pb-4 -mb-[18px] transition-colors {activeTab === 'sent' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}"
+        >Sent to PHO ({reqs.filter(r => r.status === 'sent').length})</button>
       </div>
     </Card.Header>
     <Card.Content>
@@ -56,9 +72,9 @@
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {#each requisitions as req}
+          {#each filteredReqs as req}
             <Table.Row>
-              <Table.Cell class="font-medium font-mono text-muted-foreground text-xs">{req.id}</Table.Cell>
+              <Table.Cell class="font-medium font-mono text-muted-foreground text-xs">{req.id.split('-')[0]}...</Table.Cell>
               <Table.Cell class="font-medium">{req.rhuName}</Table.Cell>
               <Table.Cell>
                 {#if req.status === 'drafted'}
@@ -67,15 +83,21 @@
                   <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Approved</Badge>
                 {:else if req.status === 'sent'}
                   <Badge variant="outline" class="border-blue-500 text-blue-600 gap-1"><Send class="h-3 w-3"/> Sent to PHO</Badge>
+                {:else}
+                  <Badge variant="outline" class="gap-1">{req.status}</Badge>
                 {/if}
               </Table.Cell>
-              <Table.Cell>{req.itemsCount} items</Table.Cell>
-              <Table.Cell class="text-muted-foreground">{req.draftedAt}</Table.Cell>
+              <Table.Cell>{req.items?.length || 0} items</Table.Cell>
+              <Table.Cell class="text-muted-foreground">{new Date(req.draftedAt).toLocaleDateString()}</Table.Cell>
               <Table.Cell class="text-right">
                 <Button variant="ghost" size="sm" href="/requisitions/{req.id}">
                   Review <ChevronRight class="h-4 w-4 ml-1" />
                 </Button>
               </Table.Cell>
+            </Table.Row>
+          {:else}
+            <Table.Row>
+              <Table.Cell colspan={6} class="text-center text-muted-foreground h-24">No requisitions found.</Table.Cell>
             </Table.Row>
           {/each}
         </Table.Body>

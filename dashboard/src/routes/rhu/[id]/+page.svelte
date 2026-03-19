@@ -11,21 +11,22 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
+  import type { PageData } from './$types';
   
-  // Mock Data
-  const mockRhu = {
-    name: "Barangay San Jose RHU",
-    barangay: "San Jose",
-    lastReported: "2 hours ago"
-  };
+  let { data }: { data: PageData } = $props();
 
-  const mockMedicines = [
-    { name: "Amoxicillin 500mg", type: "capsule", stock: 120, velocity: 8.5, daysLeft: 14.1, status: "ok" },
-    { name: "Paracetamol 500mg", type: "tablet", stock: 15, velocity: 12.0, daysLeft: 1.2, status: "critical" },
-    { name: "Losartan 50mg", type: "tablet", stock: 45, velocity: 5.2, daysLeft: 8.6, status: "warning" },
-    { name: "Cetirizine 10mg", type: "tablet", stock: 200, velocity: 2.1, daysLeft: 95.2, status: "ok" },
-    { name: "Ibuprofen 400mg", type: "tablet", stock: 0, velocity: 15.4, daysLeft: 0, status: "critical" },
-  ];
+  let rhuDetail = $derived(data.rhuDetail);
+
+  function formatRelativeTime(isoString: string) {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    if (diffMs < 0) return 'Just now'; // Handle clock skew
+    const diffMins = Math.round(diffMs / 60000);
+    if (diffMins < 60) return `${diffMins} mins ago`;
+    const diffHours = Math.round(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    const diffDays = Math.round(diffHours / 24);
+    return `${diffDays} days ago`;
+  }
 </script>
 
 <div class="flex flex-col gap-6">
@@ -33,11 +34,11 @@
     <div>
       <div class="flex items-center gap-2 text-muted-foreground mb-1">
         <MapPin class="h-4 w-4" />
-        <span class="text-sm font-medium">Barangay {mockRhu.barangay}</span>
+        <span class="text-sm font-medium">Barangay {rhuDetail.rhu.barangay}</span>
       </div>
-      <h1 class="text-3xl font-bold tracking-tight">{mockRhu.name}</h1>
+      <h1 class="text-3xl font-bold tracking-tight">{rhuDetail.rhu.name}</h1>
       <p class="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-        <CalendarClock class="h-4 w-4" /> Last synced: {mockRhu.lastReported}
+        <CalendarClock class="h-4 w-4" /> Active Status Monitored
       </p>
     </div>
     <div class="flex gap-2">
@@ -65,29 +66,38 @@
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {#each mockMedicines as med}
+            {#each rhuDetail.medicines as med}
               <Table.Row>
                 <Table.Cell class="font-medium">
                   <div class="flex items-center gap-2">
                     <Pill class="h-4 w-4 text-muted-foreground" />
-                    {med.name}
+                    <div class="flex flex-col">
+                      <span>{med.genericName}</span>
+                      <span class="text-xs text-muted-foreground font-normal">Reported: {formatRelativeTime(med.lastEntryAt)}</span>
+                    </div>
                   </div>
                 </Table.Cell>
-                <Table.Cell class="text-right">{med.stock}</Table.Cell>
-                <Table.Cell class="text-right">{med.velocity.toFixed(1)}</Table.Cell>
+                <Table.Cell class="text-right font-medium {med.currentStock <= 0 ? 'text-destructive font-bold' : ''}">{med.currentStock}</Table.Cell>
+                <Table.Cell class="text-right">{med.velocityPerDay.toFixed(1)}</Table.Cell>
                 <Table.Cell class="text-right font-semibold 
-                  {med.daysLeft < 7 ? 'text-destructive' : med.daysLeft < 14 ? 'text-amber-500' : 'text-emerald-500'}">
-                  {med.daysLeft > 90 ? '90+' : med.daysLeft.toFixed(1)}
+                  {med.daysRemaining < 7 ? 'text-destructive' : med.daysRemaining < 14 ? 'text-amber-500' : 'text-emerald-500'}">
+                  {med.daysRemaining > 999 ? '∞' : med.daysRemaining > 90 ? '90+' : med.daysRemaining.toFixed(1)}
                 </Table.Cell>
                 <Table.Cell class="text-center">
                   {#if med.status === 'critical'}
                     <Badge variant="destructive" class="gap-1"><AlertTriangle class="h-3 w-3"/> Critical</Badge>
                   {:else if med.status === 'warning'}
                     <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><TrendingDown class="h-3 w-3"/> Low</Badge>
-                  {:else}
+                  {:else if med.status === 'ok'}
                     <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Safe</Badge>
+                  {:else}
+                    <Badge variant="outline" class="gap-1 text-muted-foreground bg-muted">Silent</Badge>
                   {/if}
                 </Table.Cell>
+              </Table.Row>
+            {:else}
+              <Table.Row>
+                <Table.Cell colspan={5} class="text-center text-muted-foreground h-24">No medicines documented for this RHU.</Table.Cell>
               </Table.Row>
             {/each}
           </Table.Body>
@@ -117,13 +127,19 @@
           <Card.Title>Active Alerts</Card.Title>
         </Card.Header>
         <Card.Content class="space-y-4">
-          <div class="flex gap-3 text-sm p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
-            <AlertTriangle class="h-5 w-5 shrink-0" />
-            <div>
-              <p class="font-semibold">Paracetamol 500mg Depleted</p>
-              <p class="text-xs opacity-90 mt-0.5">Projected to hit 0 tomorrow. Requisition drafted.</p>
+          {#each rhuDetail.medicines.filter(m => m.status === 'critical' || m.status === 'warning') as med}
+            <div class="flex gap-3 text-sm p-3 rounded-lg {med.status === 'critical' ? 'bg-destructive/10 border-destructive/20 text-destructive' : 'bg-amber-500/10 border-amber-500/20 text-amber-600'} border">
+              <AlertTriangle class="h-5 w-5 shrink-0" />
+              <div>
+                <p class="font-semibold">{med.genericName} Low Stock</p>
+                <p class="text-xs opacity-90 mt-0.5">Projected stockout in {med.daysRemaining.toFixed(1)} days.</p>
+              </div>
             </div>
-          </div>
+          {:else}
+            <div class="p-4 text-center text-sm text-muted-foreground">
+              No active alerts for this RHU.
+            </div>
+          {/each}
         </Card.Content>
       </Card.Root>
     </div>

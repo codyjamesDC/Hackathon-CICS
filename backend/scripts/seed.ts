@@ -35,23 +35,25 @@ async function seed() {
   try {
     await nukeDatabase();
 
-    // 1. Create Municipality
-    console.log('1. Creating Municipality (San Juan)');
+    // 1. Create Municipality (Los Baños)
+    console.log('1. Creating Municipality (Los Baños)');
     const municipalityRes = await db.insert(schema.municipalitiesTable).values({
-      name: 'San Juan',
-      province: 'Batangas',
+      id: '00000000-0000-0000-0000-000000000002',
+      name: 'Los Baños',
+      province: 'Laguna',
     }).returning();
     const municipalityId = municipalityRes[0].id;
     console.log(`   ✅ Municipality ID: ${municipalityId}\n`);
 
     // 2. Create RHU
-    console.log('2. Creating RHU (San Juan Main RHU)');
+    console.log('2. Creating RHU (Batong Malake RHU)');
     const rhuRes = await db.insert(schema.rhuTable).values({
-      name: 'San Juan Main RHU',
-      barangay: 'Poblacion',
+      id: '00000000-0000-0000-0000-000000000003',
+      name: 'Batong Malake RHU',
+      barangay: 'Batong Malake',
       municipalityId,
-      lat: 13.8247,
-      lng: 121.3986,
+      lat: 14.1667,
+      lng: 121.2333,
     }).returning();
     const rhuId = rhuRes[0].id;
     console.log(`   ✅ RHU ID: ${rhuId}\n`);
