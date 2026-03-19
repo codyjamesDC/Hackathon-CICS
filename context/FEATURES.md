@@ -35,9 +35,11 @@ Each feature is described with its purpose, inputs/outputs, and dependencies on 
 **Logic:**
 1. On each new `stock_entry`, calculate daily consumption rate:
    `velocity = (previous_quantity - current_quantity) / days_between_entries`
-2. Maintain a 30-day rolling baseline per medicine per RHU
-3. Project days remaining: `days_remaining = current_quantity / velocity`
-4. If `days_remaining <= threshold` (7-14 days), trigger threshold breach
+2. Use EWMA (Exponential Weighted Moving Average, α=0.3) to update the ongoing velocity baseline
+3. Project days remaining: `days_remaining = current_quantity / ewma_velocity`
+4. If `days_remaining <= threshold` (7-14 days):
+   - Check if an `open` or `requisition_drafted` breach already exists for this RHU+Medicine to prevent duplicate spam.
+   - If not, trigger threshold breach and auto-draft requisition.
 
 **Runs on:** Backend (Hono). Triggered by stock entry sync.
 
@@ -59,7 +61,7 @@ Each feature is described with its purpose, inputs/outputs, and dependencies on 
 **Purpose:** Flag when a medicine is being consumed significantly faster than its 30-day baseline.
 
 **Logic:**
-1. Compare current velocity against 30-day baseline
+1. Compare current velocity against EWMA baseline
 2. If current velocity > baseline × anomaly_factor (e.g. 2.0x), flag as anomaly
 3. Create alert for MHO with medicine name, RHU, and spike magnitude
 
@@ -67,7 +69,7 @@ Each feature is described with its purpose, inputs/outputs, and dependencies on 
 
 **Inputs:**
 - Current consumption velocity
-- 30-day baseline for same medicine + RHU
+- EWMA baseline for same medicine + RHU
 
 **Outputs:**
 - Anomaly flag notification to MHO
@@ -89,8 +91,10 @@ Each feature is described with its purpose, inputs/outputs, and dependencies on 
 **Color coding:**
 - 🟢 Green: > 14 days remaining (all medicines)
 - 🟡 Yellow: 7-14 days remaining (at least one medicine)
-- 🔴 Red: < 7 days remaining (threshold breach)
-- ⚫ Gray: No recent report (participation alert)
+- 🔴 **Red:** < 7 days remaining (threshold breach)
+- ⚫ **Gray / "Silent":** No stock entry reported for over 3 days (strictly evaluated by calculating `Date.now() - lastReportedAt >= 3 days`).
+
+*Note: The backend calculates the Heatmap purely using single aggregated Map joins (no N+1 SQL queries), scaling to hundreds of RHUs smoothly.*
 
 **Data source:** Backend API → Supabase (PostGIS spatial queries)
 
@@ -150,7 +154,8 @@ threshold_breach
 **Implementation:**
 - Drift SQLite stores all pending submissions in a `sync_queue` table
 - `connectivity_plus` monitors network state
-- On connectivity restore, flush queue to Hono backend in order
+- On connectivity restore, the mobile app batches remaining entries to `POST /api/stock-entries/batch`
+- **Crucial Backend Handling:** The backend immediately strictly sorts the incoming queue by the raw offline `submittedAt` timestamps (ascending). This ensures causality inside the EWMA Engine is protected and that chronological velocities calculate perfectly regardless of exact reception times.
 - Backend responds with sync confirmation; queue entries marked as synced
 - Conflict resolution: server timestamp wins (last-write-wins for stock entries)
 
@@ -202,3 +207,19 @@ threshold_breach
 - Role determines which screens and data are accessible
 
 **Dependencies:** Supabase Auth, backend middleware for role enforcement
+
+---
+
+## 11. Testing and Verification
+
+**Purpose:** Ensure the core logic, specifically the Consumption Velocity Engine and Requisition Workflow, operates correctly in an end-to-end setting.
+
+**Implementation:**
+- A robust, idempotent **Database Seeder** (`package-seed.ts`) is used to completely nuke the backend and insert fresh testing data.
+- The seeder generates a fictional Municipality, RHU, Nurse, MHO, and populates 14 days of realistic `stock_entries` and `consumption_baselines` using the EWMA algorithm.
+- Testing flows are carried out via standard `curl` or Postman requests utilizing the unique testing UUIDs outputted by the seeder script.
+
+**Validated Flows:**
+- Simulated sudden stock drops correctly trip the `threshold_breach`.
+- Breaches correctly trigger `requisitions` to `drafted`.
+- MHOs can accurately hit the `/approve` endpoint locking the state safely against idempotency attacks (`409 Conflict`).

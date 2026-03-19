@@ -73,9 +73,9 @@ This guarantees that routes don't contain SQL queries, and database updates inst
 ### Stock Entries
 | Method | Path | Access | Description |
 |---|---|---|---|
-| POST | `/api/stock-entries` | Nurse | Submit stock count (single) |
-| POST | `/api/stock-entries/batch` | Nurse | Submit batch (offline sync flush) |
-| GET | `/api/stock-entries?rhu_id=` | Auth | Get entries for an RHU |
+| POST | `/api/stock-entries` | Nurse | Submit stock count (single). Returns `{ data, velocity }` |
+| POST | `/api/stock-entries/batch` | Nurse | Submit batch (offline sync flush). **Auto-sorts by `submittedAt` chronologically** prior to loops. |
+| GET | `/api/stock-entries?rhuId=` | Auth | Get entries for an RHU |
 
 ### Medicines
 | Method | Path | Access | Description |
@@ -85,20 +85,20 @@ This guarantees that routes don't contain SQL queries, and database updates inst
 ### RHU
 | Method | Path | Access | Description |
 |---|---|---|---|
-| GET | `/api/rhu` | MHO | List RHUs in MHO's municipality |
+| GET | `/api/rhu?municipalityId=` | MHO | List RHUs in MHO's municipality |
 | GET | `/api/rhu/:id` | Auth | Get single RHU detail |
 
 ### Dashboard
 | Method | Path | Access | Description |
 |---|---|---|---|
-| GET | `/api/dashboard/heatmap` | MHO | All RHUs with coordinates + worst days_remaining |
+| GET | `/api/dashboard/heatmap?municipalityId=` | MHO | All RHUs with coordinates + worst days_remaining |
 | GET | `/api/dashboard/rhu/:id` | MHO | Drill-down: medicine-level status for an RHU |
 
 ### Requisitions
 | Method | Path | Access | Description |
 |---|---|---|---|
-| GET | `/api/requisitions` | MHO | List requisitions (filterable by status) |
-| GET | `/api/requisitions/:id` | MHO | Single requisition detail |
+| GET | `/api/requisitions?municipalityId=` | MHO | List requisitions (filterable by status) |
+| GET | `/api/requisitions/:id` | MHO | Single requisition detail + audit trail |
 | POST | `/api/requisitions/:id/approve` | MHO | Approve → triggers email |
 
 ### Alerts
@@ -110,7 +110,7 @@ This guarantees that routes don't contain SQL queries, and database updates inst
 
 ## Business Logic
 
-### Velocity Engine (`velocity-engine.ts`)
+### Velocity Engine (`velocity-engine.service.ts`)
 
 Triggered on every new stock entry:
 
@@ -118,16 +118,20 @@ Triggered on every new stock entry:
 Input: new stock_entry (rhu_id, medicine_id, quantity, timestamp)
 
 1. Fetch previous stock_entry for same rhu_id + medicine_id
-2. Calculate:
+2. Calculate current consumption rate:
    - days_elapsed = (new.timestamp - prev.timestamp) in days
    - units_consumed = prev.quantity - new.quantity
-   - velocity = units_consumed / days_elapsed
-3. Update 30-day rolling average in consumption_baselines
-4. Calculate days_remaining = new.quantity / velocity
-5. If days_remaining <= medicine.critical_threshold_days:
-   - Create threshold_breach record
-   - Trigger requisition auto-draft
-   - Log to audit trail
+   - current_velocity = units_consumed / days_elapsed
+3. Calculate EWMA (Exponential Weighted Moving Average) with α = 0.3:
+   - new_avg_velocity = (0.3 × current_velocity) + (0.7 × previous_avg_velocity)
+4. Upsert new_avg_velocity to consumption_baselines
+5. Calculate days_remaining = new.quantity / new_avg_velocity
+6. If days_remaining <= medicine.critical_threshold_days:
+   - Check `threshold_breaches` table if an active (`open` or `requisition_drafted`) breach already exists.
+   - If NO open breach exists:
+     - Create threshold_breach record
+     - Trigger requisition auto-draft
+     - Log to audit trail
 ```
 
 ### Anomaly Detection (`anomaly-detection.ts`)
@@ -169,6 +173,22 @@ JWT_SECRET=...                         # JWT signing secret
 EMAIL_FROM=agap@example.com            # Sender email
 EMAIL_API_KEY=...                      # Resend/SMTP API key
 PORT=3000                              # Server port
+```
+
+---
+
+## Database Seeding & Testing
+
+The backend includes a **database seeder script** (`src/package-seed.ts` or run via `npm run seed`) designed for end-to-end testing of the EWMA Velocity Engine.
+
+**Key Features of the Seeder:**
+1. **Nuke & Reset**: Automatically deletes all existing data in reverse-dependency order before seeding. This makes the script 100% idempotent. You can run it repeatedly.
+2. **Historical Baselines**: Automatically creates 2 weeks of dummy `stock_entries` and backfills `consumption_baselines` to bootstrap the EWMA calculations (Amoxicillin at 50/day, Paracetamol at 100/day).
+3. **Test IDs Output**: Prints the UUIDs for the generated MHO, Nurse, RHU, Municipality, and Medicines directly to the console so you can easily copy-paste them into `curl` or Postman requests.
+
+Run the seeder with:
+```bash
+npx tsx package-seed.ts
 ```
 
 ---

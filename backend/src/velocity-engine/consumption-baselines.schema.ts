@@ -1,4 +1,4 @@
-import { decimal, pgTable, uuid, timestamp as pgTimestamp } from 'drizzle-orm/pg-core';
+import { decimal, pgTable, uuid, timestamp as pgTimestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { rhuTable } from '../rhu/rhu.schema.js';
 import { medicinesTable } from '../medicines/medicines.schema.js';
 
@@ -11,7 +11,9 @@ export const consumptionBaselinesTable = pgTable('consumption_baselines', {
   lastUpdated: pgTimestamp('last_updated', { withTimezone: true, mode: 'date' })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  uniqueIndex('consumption_baselines_rhu_medicine_idx').on(table.rhuId, table.medicineId),
+]);
 
 export type ConsumptionBaseline = typeof consumptionBaselinesTable.$inferSelect;
 export type NewConsumptionBaseline = typeof consumptionBaselinesTable.$inferInsert;

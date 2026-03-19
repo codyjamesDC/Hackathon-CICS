@@ -1,3 +1,5 @@
+import * as auditRepository from './audit.repository.js';
+
 /**
  * Audit Service — append-only event logging
  *
@@ -11,17 +13,22 @@ export async function log(event: {
   actorType: 'nurse' | 'mho' | 'system';
   entityType: string;
   entityId: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }) {
-  // TODO: insert into audit_log via repository
+  return auditRepository.insert({
+    eventType: event.eventType,
+    actorId: event.actorId,
+    actorType: event.actorType,
+    entityType: event.entityType,
+    entityId: event.entityId,
+    metadata: event.metadata ?? null,
+  });
 }
 
 export async function getTrailForEntity(entityType: string, entityId: string) {
-  // TODO: call repository
-  return [];
+  return auditRepository.findByEntity(entityType, entityId);
 }
 
 export async function getRecentEvents(limit: number = 50) {
-  // TODO: call repository
-  return [];
+  return auditRepository.findRecent(limit);
 }
