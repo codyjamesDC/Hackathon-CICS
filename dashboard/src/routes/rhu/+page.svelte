@@ -22,11 +22,11 @@
   );
 </script>
 
-<div class="px-6 py-8 max-w-7xl mx-auto space-y-8">
-  <div class="flex items-center justify-between">
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
       <h1 class="text-3xl font-bold tracking-tight">RHU Directory</h1>
-      <p class="text-muted-foreground mt-1 text-base">Directory of monitored healthcare facilities in Nagcarlan.</p>
+      <p class="text-sm text-muted-foreground mt-1">Directory of monitored healthcare facilities in Nagcarlan.</p>
     </div>
   </div>
 
