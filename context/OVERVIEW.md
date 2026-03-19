@@ -26,11 +26,12 @@ Two interfaces, one system:
 - Works fully offline — submissions queue locally and sync when signal returns
 - Optimized for low-end Android devices with intermittent connectivity
 
-### MHO Dashboard (Flutter, same app, role-based)
-- Spatial heatmap of all RHUs in the municipality (PostGIS-powered)
+### MHO Dashboard (SvelteKit, Web)
+- Spatial heatmap of all RHUs in the municipality (MapLibre GL / PostGIS-powered)
 - See which barangays are burning through which medicines fastest
 - One-tap requisition approval
 - Breach alerts (stockout projections) and silence alerts (RHUs that stopped reporting)
+- Visualized drill-down with ECharts consumption trend projections
 
 ## Core Engines
 

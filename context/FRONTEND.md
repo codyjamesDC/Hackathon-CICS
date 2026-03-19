@@ -156,7 +156,7 @@ Use Flutter's `GoRouter` or simple `Navigator` with role-based guards in the aut
 | Screen | Role | Description |
 |---|---|---|
 | Dashboard/Heatmap | MHO | Spatial overview of all RHUs, breach metrics |
-| RHU Drill-down | MHO | Specific inventory and velocity charts |
+| RHU Drill-down | MHO | Full-width single-column layout with horizontal stat chips and inline medicine row expansion for ECharts trend visualizations |
 | Requisitions | MHO | Manage system-drafted and pending requests |
 | Alerts | MHO | View anomaly spikes, breaches, and silent RHUs |
 

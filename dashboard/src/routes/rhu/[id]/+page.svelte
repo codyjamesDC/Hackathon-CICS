@@ -336,7 +336,7 @@
                         <div class="px-6 py-4">
                           <h3 class="text-sm font-medium text-muted-foreground mb-4">Consumption Trend — {med.genericName}</h3>
                           {#if stockEntriesQuery.isPending}
-                             <Skeleton class="h-[280px] w-full rounded-md" />
+                             <div class="w-full h-[280px] rounded-md bg-white/5 animate-pulse" />
                           {:else if stockEntriesData && stockEntriesData.length < 2}
                              <div class="h-[280px] w-full flex items-center justify-center text-center text-sm text-muted-foreground p-4">
                                Not enough data to plot trend.<br/>At least 2 stock submissions required.
@@ -371,31 +371,5 @@
       </Card.Content>
     </Card.Root>
 
-    <!-- Active Alerts Full Width -->
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>Active Alerts</Card.Title>
-      </Card.Header>
-      <Card.Content>
-        {#if rhuDetail}
-          {@const alerts = rhuDetail.medicines.filter((m: any) => m.status === 'critical' || m.status === 'warning')}
-          {#if alerts.length > 0}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {#each alerts as med}
-                <div class="flex gap-3 text-sm p-4 rounded-lg {med.status === 'critical' ? 'bg-destructive/10 border-destructive/20 text-destructive' : 'bg-amber-500/10 border-amber-500/20 text-amber-600'} border">
-                  <AlertTriangle class="h-5 w-5 shrink-0" />
-                  <div>
-                    <p class="font-semibold">{med.genericName} Low Stock</p>
-                    <p class="text-xs opacity-90 mt-0.5">Projected stockout in {med.daysRemaining.toFixed(1)} days.</p>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <p class="text-sm text-muted-foreground">No active alerts documented.</p>
-          {/if}
-        {/if}
-      </Card.Content>
-    </Card.Root>
   </div>
 </div>

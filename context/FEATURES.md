@@ -84,9 +84,14 @@ Each feature is described with its purpose, inputs/outputs, and dependencies on 
 **Purpose:** Show all RHUs in the municipality on a single spatial view. Color-coded by urgency.
 
 **Components:**
-- `flutter_map` widget with barangay-level tiles
+- `maplibre-gl` GPU-accelerated WebGL dashboard view
 - RHU markers colored by worst `days_remaining` across their medicines
 - Tap an RHU → drill down to medicine-level detail
+
+**RHU Drill-down Layout:**
+- **Single-Column UI:** Full-width layout replacing the previous 60/40 two-column design.
+- **At-a-Glance Bar:** Horizontal stat chips (Most Critical, Projected Zero, Last Report) below the header.
+- **Inline Row Expansion:** Medicine rows expand on click to reveal full-width ECharts Consumption Trend visualizations.
 
 **Color coding:**
 - 🟢 Green: > 14 days remaining (all medicines)
@@ -215,9 +220,9 @@ threshold_breach
 **Purpose:** Ensure the core logic, specifically the Consumption Velocity Engine and Requisition Workflow, operates correctly in an end-to-end setting.
 
 **Implementation:**
-- A robust, idempotent **Database Seeder** (`package-seed.ts`) is used to completely nuke the backend and insert fresh testing data.
-- The seeder generates a fictional Municipality, RHU, Nurse, MHO, and populates 14 days of realistic `stock_entries` and `consumption_baselines` using the EWMA algorithm.
-- Testing flows are carried out via standard `curl` or Postman requests utilizing the unique testing UUIDs outputted by the seeder script.
+- A robust, idempotent **Database Seeder** (`scripts/seed.ts`) is used to completely nuke the backend and insert fresh testing data.
+- The seeder generates a fictional Municipality, 50 RHUs, Nurses, MHO, and populates 14 days of realistic `stock_entries` for 12 distinct common medicines (Amoxicillin, Paracetamol, Metformin, etc.).
+- Testing flows are carried out via standard `curl` or Postman requests utilizing the unique testing IDs outputted by the seeder script.
 
 **Validated Flows:**
 - Simulated sudden stock drops correctly trip the `threshold_breach`.

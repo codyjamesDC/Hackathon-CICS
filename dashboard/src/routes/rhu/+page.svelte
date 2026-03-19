@@ -6,6 +6,7 @@
   import { Building2, AlertTriangle, MapPin } from 'lucide-svelte';
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { SEED_IDS } from '$lib/api/constants';
+  import { Skeleton } from "$lib/components/ui/skeleton/index.js";
 
   const heatmapQuery = createQuery(() => queries.heatmap(SEED_IDS.MUNICIPALITY_ID));
 
