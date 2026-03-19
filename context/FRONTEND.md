@@ -156,7 +156,8 @@ Use Flutter's `GoRouter` or simple `Navigator` with role-based guards in the aut
 | Screen | Role | Description |
 |---|---|---|
 | Dashboard/Heatmap | MHO | Spatial overview of all RHUs, breach metrics |
-| RHU Drill-down | MHO | Full-width single-column layout with horizontal stat chips and inline medicine row expansion for ECharts trend visualizations |
+| RHU Directory | MHO | Sortable list of all health centers and their urgency status |
+| RHU Drill-down | MHO | Full-width single-column layout with horizontal stat chips and inline medicine row expansion |
 | Requisitions | MHO | Manage system-drafted and pending requests |
 | Alerts | MHO | View anomaly spikes, breaches, and silent RHUs |
 
@@ -187,7 +188,8 @@ dashboard/
 │       │   ├── +page.svelte      # Data grid of drafts + approvals
 │       │   └── [id]/             # /requisitions/:id Drill-down Route
 │       └── rhu/
-│           └── [id]/             # Specific RHU Inventory Drill-down views
+│           ├── +page.svelte      # RHU Directory list view
+│           └── [id]/             # Specific RHU Inventory drill-down views
 ```
 
 ### MapLibre GL WebGL Integration

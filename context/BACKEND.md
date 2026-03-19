@@ -177,18 +177,20 @@ PORT=3000                              # Server port
 
 ---
 
-## Database Seeding & Testing
-
-The backend includes a **database seeder script** (`src/package-seed.ts` or run via `npm run seed`) designed for end-to-end testing of the EWMA Velocity Engine.
+The backend includes a **database seeder script** (`scripts/seed.ts` or run via `npm run seed`) designed for end-to-end testing of the EWMA Velocity Engine.
 
 **Key Features of the Seeder:**
-1. **Nuke & Reset**: Automatically deletes all existing data in reverse-dependency order before seeding. This makes the script 100% idempotent. You can run it repeatedly.
-2. **Historical Baselines**: Automatically creates 2 weeks of dummy `stock_entries` and backfills `consumption_baselines` to bootstrap the EWMA calculations (Amoxicillin at 50/day, Paracetamol at 100/day).
-3. **Test IDs Output**: Prints the UUIDs for the generated MHO, Nurse, RHU, Municipality, and Medicines directly to the console so you can easily copy-paste them into `curl` or Postman requests.
+1. **Nuke & Reset**: Automatically deletes all existing data in reverse-dependency order before seeding.
+2. **Deterministic Statuses**: Uses a direct `daysRemaining`-controlled stock calculation to guarantee specific status outcomes:
+   - **Safe (Green)**: Stock level calculated as `finalVel * (15..75 days)`.
+   - **Warning (Yellow)**: Stock level calculated as `finalVel * (7.5..12.5 days)`.
+   - **Critical (Red)**: Stock level calculated as `finalVel * (2..6 days)`.
+3. **Historical Baselines**: Creates dummy `stock_entries` and backfills `consumption_baselines` to bootstrap EWMA calculations.
+4. **Test IDs Output**: Prints UUIDs for generated MHO, Nurse, RHU, Municipality, and Medicines.
 
 Run the seeder with:
 ```bash
-npx tsx package-seed.ts
+npm run seed
 ```
 
 ---
