@@ -19,7 +19,8 @@ Agap is a predictive medicine stock intelligence system for Rural Health Units (
 
 ```
 Hackathon-CICS/
-├── frontend/     # Flutter mobile app (Nurse + MHO roles)
+├── frontend/     # Flutter mobile app (Nurse offline client)
+├── dashboard/    # SvelteKit web app (MHO heatmap and approval platform)
 ├── backend/      # Hono API server (TypeScript)
 ├── context/      # Project documentation
 └── ARCHITECTURE.md
@@ -27,12 +28,19 @@ Hackathon-CICS/
 
 ## Getting Started
 
-### Frontend
+### Frontend (Nurse)
 ```bash
 cd frontend
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 flutter run
+```
+
+### Dashboard (MHO)
+```bash
+cd dashboard
+npm install
+npm run dev
 ```
 
 ### Backend

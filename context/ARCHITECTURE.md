@@ -9,7 +9,8 @@
 
 ```
 Hackathon-CICS/
-├── frontend/        # Flutter mobile app (Nurse + MHO roles)
+├── frontend/        # Flutter mobile app (Nurse offline app)
+├── dashboard/       # SvelteKit web app (MHO admin dashboard)
 ├── backend/         # Hono API server (business logic layer)
 ├── context/         # Project documentation and agentic context
 └── README.md
@@ -17,7 +18,7 @@ Hackathon-CICS/
 
 ---
 
-## Frontend
+## 1. Frontend (Nurse App)
 
 **Runtime:** Flutter (Dart SDK ^3.11.1)
 **Target Platform:** Android (primary), offline-first, low-end device optimized
@@ -78,7 +79,31 @@ Hackathon-CICS/
 
 ---
 
-## Backend
+---
+
+## 2. Dashboard (MHO Web App)
+
+**Runtime:** Node.js (Vite)
+**Framework:** SvelteKit (TypeScript)
+**Styling:** Tailwind CSS
+
+### Core Technologies
+| Package | Purpose |
+|---|---|
+| `svelte` | Core UI compiler natively outputting lean DOM components |
+| `@sveltejs/kit` | SSR and file-based routing architecture |
+| `tailwindcss` v4 | Utility-first styling for hyper-rapid aesthetic prototyping (oklch colors) |
+| `shadcn-svelte` | Beautiful, accessible component ecosystem based on `bits-ui` Headless architecture |
+| `tailwind-variants` | Component variant styling API used alongside clsx/tailwind-merge |
+| `leaflet`| Core spatial rendering library for displaying the PostGIS interactive Heatmap natively on web |
+| `lucide-svelte` | High quality SVG icon pack |
+| `mode-watcher` & `svelte-sonner` | Dark/light theme toggling and toast notifications |
+
+> **Strategic Advantage:** Because the SvelteKit Dashboard and the Hono Backend are both built leveraging TypeScript, API Contracts and Drizzle Database Schemas can easily be shared inside the monorepo ensuring zero drift between admin components and database fields.
+
+---
+
+## 3. Backend (Hono API)
 
 **Runtime:** Node.js
 **Framework:** Hono (^4.12.8) — lightweight, TypeScript-first HTTP framework
@@ -86,16 +111,12 @@ Hackathon-CICS/
 **Database:** Supabase (PostgreSQL + PostGIS)
 
 ### Installed Packages
-| Package | Version | Purpose |
-|---|---|---|
-| `hono` | ^4.12.8 | API routing and middleware |
-| `typescript` | ^5.9.3 | Type safety |
-| `tsx` | ^4.21.0 | TypeScript execution in dev |
-| `@types/node` | ^25.5.0 | Node.js type definitions |
-
-### Packages to Install
 | Package | Purpose |
 |---|---|
+| `hono` | API routing and middleware |
+| `typescript` | Type safety |
+| `tsx` | TypeScript execution in dev |
+| `@types/node` | Node.js type definitions |
 | `drizzle-orm` | Type-safe DB queries |
 | `drizzle-kit` | Schema migrations |
 | `@supabase/supabase-js` | Supabase client (auth, realtime) |

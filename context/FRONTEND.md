@@ -1,8 +1,10 @@
-# Agap — Frontend Architecture
+# Agap — Frontend & Dashboard Architectures
 
 ## Overview
 
-Flutter mobile app with two role-based experiences (Nurse, MHO) sharing the same codebase. Offline-first, optimized for low-end Android devices with intermittent connectivity.
+We utilize a decoupled two-client architecture to maximize platform strengths:
+1. **Frontend (`frontend/`)**: Flutter mobile app strictly for the **Nurse** role. Offline-first, optimized for low-end Android devices with intermittent connectivity via local Drift SQLite queuing.
+2. **Dashboard (`dashboard/`)**: SvelteKit web app specifically for the **MHO** administrator. Blazing fast SSR loading, visually premium Tailwind designs, and full browser-native HTML canvas mapping architectures for the PostGIS heatmap.
 
 ---
 
@@ -48,19 +50,7 @@ lib/
 │   │   │       └── medicine_input_tile.dart
 │   │   └── README.md
 │   │
-│   ├── dashboard/                   # MHO: heatmap + overview
-│   │   ├── data/
-│   │   │   └── dashboard_repository.dart
-│   │   ├── domain/
-│   │   │   └── rhu_status_model.dart
-│   │   ├── presentation/
-│   │   │   ├── dashboard_screen.dart
-│   │   │   ├── dashboard_provider.dart
-│   │   │   └── widgets/
-│   │   │       ├── rhu_heatmap.dart
-│   │   │       └── urgency_legend.dart
-│   │   └── README.md
-│   │
+
 │   ├── consumption/                 # Days-remaining display + charts
 │   │   ├── data/
 │   │   │   └── consumption_repository.dart
@@ -73,29 +63,7 @@ lib/
 │   │   │       └── velocity_chart.dart
 │   │   └── README.md
 │   │
-│   ├── requisition/                 # MHO: approve requisitions
-│   │   ├── data/
-│   │   │   └── requisition_repository.dart
-│   │   ├── domain/
-│   │   │   └── requisition_model.dart
-│   │   ├── presentation/
-│   │   │   ├── requisition_list_screen.dart
-│   │   │   ├── requisition_detail_screen.dart
-│   │   │   ├── requisition_provider.dart
-│   │   │   └── widgets/
-│   │   │       └── requisition_card.dart
-│   │   └── README.md
-│   │
-│   ├── alerts/                      # Notifications display
-│   │   ├── data/
-│   │   │   └── alerts_repository.dart
-│   │   ├── domain/
-│   │   │   └── alert_model.dart
-│   │   ├── presentation/
-│   │   │   ├── alerts_screen.dart
-│   │   │   └── alerts_provider.dart
-│   │   └── README.md
-│   │
+
 │   └── auth/                        # Login screen
 │       ├── presentation/
 │       │   ├── login_screen.dart
@@ -169,7 +137,6 @@ User Action
 
 Role-based routing:
 - **Nurse** → Stock Entry, My RHU Status, Alerts
-- **MHO** → Dashboard (Heatmap), Requisitions, Alerts, All RHUs
 
 Use Flutter's `GoRouter` or simple `Navigator` with role-based guards in the auth provider.
 
@@ -177,16 +144,57 @@ Use Flutter's `GoRouter` or simple `Navigator` with role-based guards in the aut
 
 ## Screen Inventory
 
+### Flutter (Nurse App)
 | Screen | Role | Description |
 |---|---|---|
-| Login | Both | Email + password, token stored securely |
 | Stock Entry | Nurse | List of medicines, enter quantities, submit |
 | My RHU Status | Nurse | Days remaining per medicine, sync status |
-| Dashboard | MHO | Heatmap of all RHUs, color by urgency |
-| RHU Detail | MHO | Drill into one RHU's medicine status |
-| Requisitions | MHO | List of pending/approved requisitions |
-| Requisition Detail | MHO | View items, approve, see audit trail |
-| Alerts | Both | Threshold breaches, anomalies, participation alerts |
+| Sync Status | Nurse | View local queue and connectivity status |
+*(Note: Login skipped if skipping auth)*
+
+### SvelteKit (MHO Dashboard)
+| Screen | Role | Description |
+|---|---|---|
+| Dashboard/Heatmap | MHO | Spatial overview of all RHUs, breach metrics |
+| RHU Drill-down | MHO | Specific inventory and velocity charts |
+| Requisitions | MHO | Manage system-drafted and pending requests |
+| Alerts | MHO | View anomaly spikes, breaches, and silent RHUs |
+
+---
+
+## SvelteKit Dashboard Architecture (MHO)
+
+**MHO Dashboard** uses standard `SvelteKit` file-based `+page.svelte` routing driven by `Tailwind CSS v4` and `shadcn-svelte`.
+
+### Folder Structure Overview
+```
+dashboard/
+├── src/
+│   ├── app.html                  # Root template wrapper with Google Fonts
+│   ├── lib/                      # Reusable modular code
+│   │   ├── components/           # UI Components
+│   │   │   ├── ui/               # shadcn-svelte auto-generated primitives
+│   │   │   └── app-sidebar.svelte# Main layout sidebar navigation
+│   │   ├── server/               # Server-only secrets
+│   │   └── utils.ts              # cn() tailwind-merge utilities
+│   └── routes/                   # File-based routing
+│       ├── +layout.svelte        # Outer generic shell (Sidebar, ModeWatcher, Toaster)
+│       ├── layout.css            # Global stylesheet with oklch themes
+│       ├── +page.svelte          # Homepage Heatmap Overview + Metrics
+│       ├── alerts/               # System alerts and notifications route
+│       │   └── +page.svelte      # Alert grouped cards
+│       ├── requisitions/         # /requisitions Route
+│       │   ├── +page.svelte      # Data grid of drafts + approvals
+│       │   └── [id]/             # /requisitions/:id Drill-down Route
+│       └── rhu/
+│           └── [id]/             # Specific RHU Inventory Drill-down views
+```
+
+### Mapbox / Leaflet Integration
+Unlike Flutter's restricted `flutter_map`, navigating spatial PostGIS boundaries natively through Svelte `onMount` bindings guarantees top-tier performance for the `GET /api/dashboard/heatmap` response.
+
+### TypeScript Monorepo Advantage
+The `dashboard` and `backend` are both node-based TypeScript workspaces. The frontend fetches raw typed endpoints and guarantees compile-time safety against the Drizzle Database model definitions saving colossal scaffolding cycles.
 
 ---
 
