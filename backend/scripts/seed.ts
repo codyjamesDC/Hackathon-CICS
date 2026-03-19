@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq, and } from 'drizzle-orm';
 import postgres from 'postgres';
-import * as schema from './src/db/schema/index.js';
+import * as schema from '../src/db/schema/index.js';
 
 // Initialize DB connection
 const connectionString = process.env.DATABASE_URL;
@@ -14,7 +14,7 @@ const client = postgres(connectionString);
 const db = drizzle(client, { schema });
 
 async function nukeDatabase() {
-  console.log('💥 Nuking existing data...');
+  console.log('Nuking existing data...');
   // Delete in reverse dependency order to avoid foreign key constraint errors
   await db.delete(schema.auditLogTable);
   await db.delete(schema.requisitionItemsTable);
@@ -26,11 +26,11 @@ async function nukeDatabase() {
   await db.delete(schema.usersTable);
   await db.delete(schema.rhuTable);
   await db.delete(schema.municipalitiesTable);
-  console.log('   ✅ Database cleared\n');
+  console.log('Database cleared\n');
 }
 
 async function seed() {
-  console.log('🌱 Starting Database Seeding...\n');
+  console.log('Starting Database Seeding...\n');
 
   try {
     await nukeDatabase();
@@ -205,7 +205,7 @@ async function seed() {
     console.log('   ✅ Historical data inserted. Velocity baseline established (Amox: 50/day, Para: 100/day)\n');
 
     console.log('====================================================');
-    console.log('🎉 Seeding Complete! Ready for end-to-end testing.');
+    console.log('Seeding Complete! Ready for end-to-end testing.');
     console.log('====================================================\n');
     console.log('Test Scenario IDs (use these in Headers / Bodies):');
     console.log(`- MHO_ID:   ${mhoId}  (For GET /rhu, GET /dashboard/..., POST /requisitions/approve)`);

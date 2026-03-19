@@ -21,7 +21,7 @@ async function fetchApi(path: string, method = 'GET', body: any = null, headers:
 
 async function run() {
   console.log('Running seeder to get IDs...');
-  const seedOutput = execSync('npx tsx package-seed.ts').toString();
+  const seedOutput = execSync('npx tsx scripts/seed.ts').toString();
   const lines = seedOutput.split('\n');
 
   const extractId = (prefix: string) => {
