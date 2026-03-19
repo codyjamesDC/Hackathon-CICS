@@ -6,10 +6,16 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 
+	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
+	import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools';
+	
+	const queryClient = new QueryClient();
+
 	let { children } = $props();
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<QueryClientProvider client={queryClient}>
 
 <ModeWatcher />
 <Toaster />
@@ -27,3 +33,5 @@
 		</main>
 	</Sidebar.Inset>
 </Sidebar.Provider>
+<SvelteQueryDevtools />
+</QueryClientProvider>

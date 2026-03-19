@@ -95,9 +95,10 @@ Hackathon-CICS/
 | `tailwindcss` v4 | Utility-first styling for hyper-rapid aesthetic prototyping (oklch colors) |
 | `shadcn-svelte` | Beautiful, accessible component ecosystem based on `bits-ui` Headless architecture |
 | `tailwind-variants` | Component variant styling API used alongside clsx/tailwind-merge |
-| `maplibre-gl`| Core WebGL spatial rendering engine for displaying the PostGIS interactive Heatmap natively on web |
+| `maplibre-gl`| Core WebGL spatial rendering engine for displaying the PostGIS interactive Heatmap natively on web. **Scanned geo-boundaries are specifically focused on Nagcarlan, Laguna.** |
 | `lucide-svelte` | High quality SVG icon pack |
 | `mode-watcher` & `svelte-sonner` | Dark/light theme toggling and toast notifications |
+| `@tanstack/svelte-query` | **MANDATORY** standard for all API calls and data fetching. No SSR SvelteKit `load` functions allowed. Use reactive accessors `() => {}` inside queries. |
 
 > **Strategic Advantage:** Because the SvelteKit Dashboard and the Hono Backend are both built leveraging TypeScript, API Contracts and Drizzle Database Schemas can easily be shared inside the monorepo ensuring zero drift between admin components and database fields.
 

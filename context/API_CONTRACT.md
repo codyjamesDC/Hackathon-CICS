@@ -17,6 +17,15 @@
 
 ---
 
+## Frontend Data Fetching Policy (Dashboard)
+
+> **CRITICAL RULE:** All fetching and API calls within the SvelteKit Dashboard MUST utilize **TanStack Query** (`@tanstack/svelte-query`).
+> - Use `createQuery(() => ...)` for all GET requests.
+> - Use `createMutation(() => ({ ... }))` for all POST/PUT/DELETE requests.
+> - **Do NOT** use SvelteKit SSR (`+page.ts` or `+page.server.ts` `load` functions) for data fetching. All data fetching is 100% client-side.
+
+---
+
 ## Auth Context
 
 For MVP, `nurseId`, `rhuId`, and `municipalityId` will be passed via query params or headers until auth middleware is wired.

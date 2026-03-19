@@ -11,11 +11,13 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
-  import type { PageData } from './$types';
+  import { Skeleton } from "$lib/components/ui/skeleton/index.js";
+  import { page } from "$app/stores";
+  import { createQuery } from '@tanstack/svelte-query';
+  import { queries } from '$lib/api/queries';
   
-  let { data }: { data: PageData } = $props();
-
-  let rhuDetail = $derived(data.rhuDetail);
+  const rhuQuery = createQuery(() => queries.rhuDrilldown($page.params.id as string));
+  let rhuDetail = $derived(rhuQuery.data as any);
 
   function formatRelativeTime(isoString: string) {
     const diffMs = Date.now() - new Date(isoString).getTime();
@@ -32,18 +34,26 @@
 <div class="flex flex-col gap-6">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
-      <div class="flex items-center gap-2 text-muted-foreground mb-1">
-        <MapPin class="h-4 w-4" />
-        <span class="text-sm font-medium">Barangay {rhuDetail.rhu.barangay}</span>
-      </div>
-      <h1 class="text-3xl font-bold tracking-tight">{rhuDetail.rhu.name}</h1>
-      <p class="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-        <CalendarClock class="h-4 w-4" /> Active Status Monitored
-      </p>
+      {#if rhuDetail}
+        <div class="flex items-center gap-2 text-muted-foreground mb-1">
+          <MapPin class="h-4 w-4" />
+          <span class="text-sm font-medium">Barangay {rhuDetail.rhu.barangay}</span>
+        </div>
+        <h1 class="text-3xl font-bold tracking-tight">{rhuDetail.rhu.name}</h1>
+        <p class="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+          <CalendarClock class="h-4 w-4" /> Active Status Monitored
+        </p>
+      {:else if rhuQuery.isPending}
+        <Skeleton class="h-5 w-32 mb-2" />
+        <Skeleton class="h-9 w-64 mb-2" />
+        <Skeleton class="h-5 w-48" />
+      {:else}
+        <p class="text-destructive">Failed to load RHU data.</p>
+      {/if}
     </div>
     <div class="flex gap-2">
-      <Button variant="outline">View Offline Audit</Button>
-      <Button>Draft Requisition</Button>
+      <Button variant="outline" disabled={!rhuDetail}>View Offline Audit</Button>
+      <Button disabled={!rhuDetail}>Draft Requisition</Button>
     </div>
   </div>
 
@@ -66,40 +76,52 @@
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {#each rhuDetail.medicines as med}
-              <Table.Row>
-                <Table.Cell class="font-medium">
-                  <div class="flex items-center gap-2">
-                    <Pill class="h-4 w-4 text-muted-foreground" />
-                    <div class="flex flex-col">
-                      <span>{med.genericName}</span>
-                      <span class="text-xs text-muted-foreground font-normal">Reported: {formatRelativeTime(med.lastEntryAt)}</span>
+            {#if rhuDetail}
+              {#each rhuDetail!.medicines as med}
+                <Table.Row>
+                  <Table.Cell class="font-medium">
+                    <div class="flex items-center gap-2">
+                      <Pill class="h-4 w-4 text-muted-foreground" />
+                      <div class="flex flex-col">
+                        <span>{med.genericName}</span>
+                        <span class="text-xs text-muted-foreground font-normal">Reported: {formatRelativeTime(med.lastEntryAt)}</span>
+                      </div>
                     </div>
-                  </div>
-                </Table.Cell>
-                <Table.Cell class="text-right font-medium {med.currentStock <= 0 ? 'text-destructive font-bold' : ''}">{med.currentStock}</Table.Cell>
-                <Table.Cell class="text-right">{med.velocityPerDay.toFixed(1)}</Table.Cell>
-                <Table.Cell class="text-right font-semibold 
-                  {med.daysRemaining < 7 ? 'text-destructive' : med.daysRemaining < 14 ? 'text-amber-500' : 'text-emerald-500'}">
-                  {med.daysRemaining > 999 ? '∞' : med.daysRemaining > 90 ? '90+' : med.daysRemaining.toFixed(1)}
-                </Table.Cell>
-                <Table.Cell class="text-center">
-                  {#if med.status === 'critical'}
-                    <Badge variant="destructive" class="gap-1"><AlertTriangle class="h-3 w-3"/> Critical</Badge>
-                  {:else if med.status === 'warning'}
-                    <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><TrendingDown class="h-3 w-3"/> Low</Badge>
-                  {:else if med.status === 'ok'}
-                    <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Safe</Badge>
-                  {:else}
-                    <Badge variant="outline" class="gap-1 text-muted-foreground bg-muted">Silent</Badge>
-                  {/if}
-                </Table.Cell>
-              </Table.Row>
-            {:else}
-              <Table.Row>
-                <Table.Cell colspan={5} class="text-center text-muted-foreground h-24">No medicines documented for this RHU.</Table.Cell>
-              </Table.Row>
-            {/each}
+                  </Table.Cell>
+                  <Table.Cell class="text-right font-medium {med.currentStock <= 0 ? 'text-destructive font-bold' : ''}">{med.currentStock}</Table.Cell>
+                  <Table.Cell class="text-right">{med.velocityPerDay.toFixed(1)}</Table.Cell>
+                  <Table.Cell class="text-right font-semibold 
+                    {med.daysRemaining < 7 ? 'text-destructive' : med.daysRemaining < 14 ? 'text-amber-500' : 'text-emerald-500'}">
+                    {med.daysRemaining > 999 ? '∞' : med.daysRemaining > 90 ? '90+' : med.daysRemaining.toFixed(1)}
+                  </Table.Cell>
+                  <Table.Cell class="text-center">
+                    {#if med.status === 'critical'}
+                      <Badge variant="destructive" class="gap-1"><AlertTriangle class="h-3 w-3"/> Critical</Badge>
+                    {:else if med.status === 'warning'}
+                      <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><TrendingDown class="h-3 w-3"/> Low</Badge>
+                    {:else if med.status === 'ok'}
+                      <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Safe</Badge>
+                    {:else}
+                      <Badge variant="outline" class="gap-1 text-muted-foreground bg-muted">Silent</Badge>
+                    {/if}
+                  </Table.Cell>
+                </Table.Row>
+              {:else}
+                <Table.Row>
+                  <Table.Cell colspan={5} class="text-center text-muted-foreground h-24">No medicines documented for this RHU.</Table.Cell>
+                </Table.Row>
+              {/each}
+            {:else if rhuQuery.isPending}
+              {#each Array(4) as _}
+                <Table.Row>
+                  <Table.Cell><Skeleton class="h-8 w-32" /></Table.Cell>
+                  <Table.Cell><Skeleton class="h-5 w-12 ml-auto" /></Table.Cell>
+                  <Table.Cell><Skeleton class="h-5 w-12 ml-auto" /></Table.Cell>
+                  <Table.Cell><Skeleton class="h-5 w-12 ml-auto" /></Table.Cell>
+                  <Table.Cell><Skeleton class="h-6 w-20 mx-auto" /></Table.Cell>
+                </Table.Row>
+              {/each}
+            {/if}
           </Table.Body>
         </Table.Root>
       </Card.Content>
@@ -127,19 +149,21 @@
           <Card.Title>Active Alerts</Card.Title>
         </Card.Header>
         <Card.Content class="space-y-4">
-          {#each rhuDetail.medicines.filter(m => m.status === 'critical' || m.status === 'warning') as med}
-            <div class="flex gap-3 text-sm p-3 rounded-lg {med.status === 'critical' ? 'bg-destructive/10 border-destructive/20 text-destructive' : 'bg-amber-500/10 border-amber-500/20 text-amber-600'} border">
-              <AlertTriangle class="h-5 w-5 shrink-0" />
-              <div>
-                <p class="font-semibold">{med.genericName} Low Stock</p>
-                <p class="text-xs opacity-90 mt-0.5">Projected stockout in {med.daysRemaining.toFixed(1)} days.</p>
+          {#if rhuDetail}
+            {#each rhuDetail!.medicines.filter((m: any) => m.status === 'critical' || m.status === 'warning') as med}
+              <div class="flex gap-3 text-sm p-3 rounded-lg {med.status === 'critical' ? 'bg-destructive/10 border-destructive/20 text-destructive' : 'bg-amber-500/10 border-amber-500/20 text-amber-600'} border">
+                <AlertTriangle class="h-5 w-5 shrink-0" />
+                <div>
+                  <p class="font-semibold">{med.genericName} Low Stock</p>
+                  <p class="text-xs opacity-90 mt-0.5">Projected stockout in {med.daysRemaining.toFixed(1)} days.</p>
+                </div>
               </div>
-            </div>
-          {:else}
-            <div class="p-4 text-center text-sm text-muted-foreground">
-              No active alerts for this RHU.
-            </div>
-          {/each}
+            {:else}
+              <div class="p-4 text-center text-sm text-muted-foreground">
+                No active alerts for this RHU.
+              </div>
+            {/each}
+          {/if}
         </Card.Content>
       </Card.Root>
     </div>

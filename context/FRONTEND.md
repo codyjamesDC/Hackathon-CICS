@@ -4,7 +4,7 @@
 
 We utilize a decoupled two-client architecture to maximize platform strengths:
 1. **Frontend (`frontend/`)**: Flutter mobile app strictly for the **Nurse** role. Offline-first, optimized for low-end Android devices with intermittent connectivity via local Drift SQLite queuing.
-2. **Dashboard (`dashboard/`)**: SvelteKit web app specifically for the **MHO** administrator. Blazing fast SSR loading, visually premium Tailwind designs, and full browser-native HTML canvas mapping architectures for the PostGIS heatmap.
+2. **Dashboard (`dashboard/`)**: SvelteKit web app specifically for the **MHO** administrator. Visually premium Tailwind designs, full browser-native HTML canvas mapping architectures for the PostGIS heatmap, and **strictly client-side data fetching via `@tanstack/svelte-query`** (SvelteKit SSR `load` functions are explicitly prohibited).
 
 ---
 

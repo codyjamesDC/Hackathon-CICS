@@ -4,21 +4,25 @@
     ChevronRight,
     Clock,
     CheckCircle2,
-    Send
+    Send,
+    AlertTriangle
   } from "lucide-svelte";
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
-  import type { PageData } from './$types';
+  import { Skeleton } from "$lib/components/ui/skeleton/index.js";
+  import { createQuery } from '@tanstack/svelte-query';
+  import { queries } from '$lib/api/queries';
+  import { SEED_IDS } from '$lib/api/constants';
   
-  let { data }: { data: PageData } = $props();
-
   let activeTab = $state<'all' | 'drafted' | 'approved' | 'sent'>('all');
 
-  let reqs = $derived(data.requisitions);
+  const reqsQuery = createQuery(() => queries.requisitions(SEED_IDS.MUNICIPALITY_ID));
+
+  let reqs = $derived((reqsQuery.data as any[]) ?? []);
   let filteredReqs = $derived(
-    activeTab === 'all' ? reqs : reqs.filter(r => r.status === activeTab)
+    activeTab === 'all' ? reqs : reqs.filter((r: any) => r.status === activeTab)
   );
 </script>
 
@@ -72,34 +76,55 @@
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {#each filteredReqs as req}
+          {#if reqsQuery.isPending}
+            {#each Array(5) as _}
+              <Table.Row>
+                <Table.Cell><Skeleton class="h-4 w-16" /></Table.Cell>
+                <Table.Cell><Skeleton class="h-4 w-32" /></Table.Cell>
+                <Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
+                <Table.Cell><Skeleton class="h-4 w-12" /></Table.Cell>
+                <Table.Cell><Skeleton class="h-4 w-24" /></Table.Cell>
+                <Table.Cell class="text-right"><Skeleton class="h-8 w-16 ml-auto" /></Table.Cell>
+              </Table.Row>
+            {/each}
+          {:else if reqsQuery.isError}
             <Table.Row>
-              <Table.Cell class="font-medium font-mono text-muted-foreground text-xs">{req.id.split('-')[0]}...</Table.Cell>
-              <Table.Cell class="font-medium">{req.rhuName}</Table.Cell>
-              <Table.Cell>
-                {#if req.status === 'drafted'}
-                  <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><Clock class="h-3 w-3"/> Drafted</Badge>
-                {:else if req.status === 'approved'}
-                  <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Approved</Badge>
-                {:else if req.status === 'sent'}
-                  <Badge variant="outline" class="border-blue-500 text-blue-600 gap-1"><Send class="h-3 w-3"/> Sent to PHO</Badge>
-                {:else}
-                  <Badge variant="outline" class="gap-1">{req.status}</Badge>
-                {/if}
-              </Table.Cell>
-              <Table.Cell>{req.items?.length || 0} items</Table.Cell>
-              <Table.Cell class="text-muted-foreground">{new Date(req.draftedAt).toLocaleDateString()}</Table.Cell>
-              <Table.Cell class="text-right">
-                <Button variant="ghost" size="sm" href="/requisitions/{req.id}">
-                  Review <ChevronRight class="h-4 w-4 ml-1" />
-                </Button>
+              <Table.Cell colspan={6} class="text-center text-destructive h-32">
+                <AlertTriangle class="h-6 w-6 mx-auto mb-2 opacity-80" />
+                <p>Failed to load requisitions.</p>
+                <p class="text-xs opacity-70 mt-1">{reqsQuery.error?.message}</p>
               </Table.Cell>
             </Table.Row>
           {:else}
-            <Table.Row>
-              <Table.Cell colspan={6} class="text-center text-muted-foreground h-24">No requisitions found.</Table.Cell>
-            </Table.Row>
-          {/each}
+            {#each filteredReqs as req}
+              <Table.Row>
+                <Table.Cell class="font-medium font-mono text-muted-foreground text-xs">{req.id.split('-')[0]}...</Table.Cell>
+                <Table.Cell class="font-medium">{req.rhuName}</Table.Cell>
+                <Table.Cell>
+                  {#if req.status === 'drafted'}
+                    <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><Clock class="h-3 w-3"/> Drafted</Badge>
+                  {:else if req.status === 'approved'}
+                    <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Approved</Badge>
+                  {:else if req.status === 'sent'}
+                    <Badge variant="outline" class="border-blue-500 text-blue-600 gap-1"><Send class="h-3 w-3"/> Sent to PHO</Badge>
+                  {:else}
+                    <Badge variant="outline" class="gap-1">{req.status}</Badge>
+                  {/if}
+                </Table.Cell>
+                <Table.Cell>{req.items?.length || 0} items</Table.Cell>
+                <Table.Cell class="text-muted-foreground">{new Date(req.draftedAt).toLocaleDateString()}</Table.Cell>
+                <Table.Cell class="text-right">
+                  <Button variant="ghost" size="sm" href="/requisitions/{req.id}">
+                    Review <ChevronRight class="h-4 w-4 ml-1" />
+                  </Button>
+                </Table.Cell>
+              </Table.Row>
+            {:else}
+              <Table.Row>
+                <Table.Cell colspan={6} class="text-center text-muted-foreground h-32">No requisitions found for this filter.</Table.Cell>
+              </Table.Row>
+            {/each}
+          {/if}
         </Table.Body>
       </Table.Root>
     </Card.Content>

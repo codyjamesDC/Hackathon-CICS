@@ -5,52 +5,73 @@
     Building2, 
     FileText 
   } from "lucide-svelte";
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { env } from '$env/dynamic/public';
-  import 'maplibre-gl/dist/maplibre-gl.css'; // Native Vite import to sync with installed npm version
+  import 'maplibre-gl/dist/maplibre-gl.css';
   import maplibregl from 'maplibre-gl';
   import * as Card from "$lib/components/ui/card/index.js";
-  import type { PageData } from './$types';
-  
-  let { data }: { data: PageData } = $props();
+  import { createQuery } from '@tanstack/svelte-query';
+  import { queries } from '$lib/api/queries';
+  import { SEED_IDS } from '$lib/api/constants';
 
   let mapElement: HTMLElement;
+  let mapInstance: maplibregl.Map | null = null;
+
+  const heatmapQuery = createQuery(() => queries.heatmap(SEED_IDS.MUNICIPALITY_ID));
+  const reqsQuery = createQuery(() => queries.requisitions(SEED_IDS.MUNICIPALITY_ID));
+
+  // Derived dashboard metrics
+  let heatData = $derived(heatmapQuery.data ?? []);
+  let totalRhus = $derived(heatData.length);
+  let activeBreaches = $derived(heatData.filter((r: any) => r.status === 'critical').length);
+  let silentRhus = $derived(heatData.filter((r: any) => r.status === 'silent').length);
+  let pendingRequisitions = $derived((reqsQuery.data ?? []).filter((r: any) => r.status === 'drafted').length);
+
+  // Sync map layer colors when heatmap query refetches
+  $effect(() => {
+    if (heatmapQuery.data && mapInstance && mapInstance.getSource('barangays')) {
+      // Re-trigger color expressions or recreate property mapping if needed
+      // (For MVP, we just rely on map clicking and popup logic reacting, 
+      // but to be fully reactive to live data changes we'd update GeoJSON properties here).
+    }
+  });
 
   onMount(() => {
     if (!mapElement) return;
 
-    // We use the completely free, no-token-required CartoDB Dark Matter GL style!
-    const map = new maplibregl.Map({
+    mapInstance = new maplibregl.Map({
       container: mapElement,
       style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      center: [121.2333, 14.1667],
+      center: [121.4170, 14.1500], // Nagcarlan focus roughly
       zoom: 12.5,
       attributionControl: false
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-left');
+    mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-left');
 
-    map.on('load', async () => {
+    mapInstance.on('load', async () => {
+      if (!mapInstance) return;
       try {
-        const response = await window.fetch('/losb_anos_barangays.geojson');
+        const response = await window.fetch('/nagcarlan_barangays.geojson');
         const geojsonData = await response.json();
 
-        // 1. Build a fast lookup map for our backend metric data
+        // Use untrack so we don't accidentally create an effect loop here, 
+        // we'll just snap the current data.
+        const currentHeatmap = untrack(() => heatmapQuery.data ?? []);
         const rhuMap = new Map();
-        data.heatmap.forEach((rhu: any) => {
+        currentHeatmap.forEach((rhu: any) => {
           const rawName = rhu.barangay.toLowerCase().replace('barangay ', '').trim();
           rhuMap.set(rawName, rhu);
         });
 
-        // 2. Pre-process the GeoJSON to embed our data-driven styling properties directly 
-        // into the feature properties so the WebGL shader can render them in one pass.
         geojsonData.features = geojsonData.features.map((f: any, index: number) => {
-          f.id = index; // MapLibre GL requires integer IDs for interactive hover states
+          f.id = index; 
           
-          const brgyName = f.properties.NAME_3?.toLowerCase().trim();
+          // Using adm4_en as per TopoJSON conversion output
+          const brgyName = f.properties.adm4_en?.toLowerCase().trim();
           const rhu = rhuMap.get(brgyName);
           
-          let fillColor = '#1f2937'; // Default dark gray for no RHU
+          let fillColor = '#1f2937'; 
           let fillOpacity = 0.3;
           let status = 'unmonitored';
 
@@ -74,14 +95,12 @@
           return f;
         });
 
-        // 3. Add the data source to the WebGL engine
-        map.addSource('barangays', {
+        mapInstance.addSource('barangays', {
           type: 'geojson',
           data: geojsonData
         });
 
-        // 4. Paint the filled polygons using the data-driven properties
-        map.addLayer({
+        mapInstance.addLayer({
           id: 'barangays-fill',
           type: 'fill',
           source: 'barangays',
@@ -91,8 +110,7 @@
           }
         });
 
-        // 5. Paint the dashed boundaries
-        map.addLayer({
+        mapInstance.addLayer({
           id: 'barangays-line',
           type: 'line',
           source: 'barangays',
@@ -104,8 +122,7 @@
           }
         });
 
-        // 6. Paint a dynamic hover-border layer
-        map.addLayer({
+        mapInstance.addLayer({
           id: 'barangays-hover',
           type: 'line',
           source: 'barangays',
@@ -121,7 +138,6 @@
           }
         });
 
-        // 7. Interactivity definitions
         const popup = new maplibregl.Popup({
           closeButton: false,
           closeOnClick: false,
@@ -129,18 +145,17 @@
 
         let hoveredStateId: number | null = null;
 
-        map.on('mousemove', 'barangays-fill', (e: any) => {
+        mapInstance.on('mousemove', 'barangays-fill', (e: any) => {
+          if (!mapInstance) return;
           if (e.features.length > 0) {
-            map.getCanvas().style.cursor = 'pointer';
+            mapInstance.getCanvas().style.cursor = 'pointer';
             
-            // Set hover state for border outline
             if (hoveredStateId !== null) {
-              map.setFeatureState({ source: 'barangays', id: hoveredStateId }, { hover: false });
+              mapInstance.setFeatureState({ source: 'barangays', id: hoveredStateId }, { hover: false });
             }
-            hoveredStateId = e.features[0].id;
-            map.setFeatureState({ source: 'barangays', id: hoveredStateId }, { hover: true });
+            hoveredStateId = e.features[0].id as number;
+            mapInstance.setFeatureState({ source: 'barangays', id: hoveredStateId }, { hover: true });
 
-            // Set popup text
             const props = e.features[0].properties;
             let html = '';
             if (props.rhuId) {
@@ -151,24 +166,25 @@
               </div>`;
             } else {
               html = `<div style="padding: 4px; font-family: Inter, sans-serif;">
-                <b style="color: black">Barangay ${props.NAME_3}</b><br/>
+                <b style="color: black">Barangay ${props.adm4_en}</b><br/>
                 <span style="color: gray; font-size: 12px;">No monitoring facility.</span>
               </div>`;
             }
-            popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+            popup.setLngLat(e.lngLat).setHTML(html).addTo(mapInstance);
           }
         });
 
-        map.on('mouseleave', 'barangays-fill', () => {
-          map.getCanvas().style.cursor = '';
+        mapInstance.on('mouseleave', 'barangays-fill', () => {
+          if (!mapInstance) return;
+          mapInstance.getCanvas().style.cursor = '';
           popup.remove();
           if (hoveredStateId !== null) {
-            map.setFeatureState({ source: 'barangays', id: hoveredStateId }, { hover: false });
+            mapInstance.setFeatureState({ source: 'barangays', id: hoveredStateId }, { hover: false });
           }
           hoveredStateId = null;
         });
 
-        map.on('click', 'barangays-fill', (e: any) => {
+        mapInstance.on('click', 'barangays-fill', (e: any) => {
           const rhuId = e.features[0]?.properties?.rhuId;
           if (rhuId && rhuId !== 'null') {
             window.location.href = `/rhu/${rhuId}`;
@@ -181,15 +197,9 @@
     });
 
     return () => {
-      map.remove();
+      mapInstance?.remove();
     };
   });
-
-  // Derived state directly from resolved data
-  let totalRhus = $derived(data.heatmap.length);
-  let activeBreaches = $derived(data.heatmap.filter(r => r.status === 'critical').length);
-  let silentRhus = $derived(data.heatmap.filter(r => r.status === 'silent').length);
-  let pendingRequisitions = $derived(data.requisitions.filter(r => r.status === 'drafted').length);
 </script>
 
 <div class="relative w-full h-[calc(100vh-6rem)] rounded-2xl overflow-hidden border border-border/30 shadow-2xl bg-[#09090b]">

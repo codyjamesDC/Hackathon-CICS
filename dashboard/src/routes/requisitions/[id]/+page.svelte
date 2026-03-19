@@ -11,36 +11,29 @@
   import * as Table from "$lib/components/ui/table/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
+  import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { toast } from "svelte-sonner";
-  import type { PageData } from './$types';
-  import { apiClient } from "$lib/api/client";
-  import { ENDPOINTS } from "$lib/api/endpoints";
-  import { invalidateAll } from "$app/navigation";
-  
-  let { data }: { data: PageData } = $props();
+  import { page } from "$app/stores";
+  import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
+  import { queries, approveRequisition } from '$lib/api/queries';
 
-  let reqDetail = $derived(data.reqDetail);
-  let isSubmitting = $state(false);
+  const queryClient = useQueryClient();
+  const reqQuery = createQuery(() => queries.requisitionDetail($page.params.id as string));
+  let reqDetail = $derived(reqQuery.data);
 
-  async function approveRequisition(id: string) {
-    if (isSubmitting) return;
-    isSubmitting = true;
-    try {
-      await apiClient(window.fetch, ENDPOINTS.REQUISITION_APPROVE(id), {
-        method: 'POST'
-      });
-      toast.success("Requisition approved successfully");
-      await invalidateAll(); // Refresh data
-    } catch (e: any) {
-      if (e.message.includes('Already approved')) {
-        toast.error("Already approved");
-      } else {
-        toast.error(e.message || "Failed to approve requisition");
-      }
-    } finally {
-      isSubmitting = false;
+  const approveMut = createMutation(() => ({
+    mutationFn: (id: string) => approveRequisition(id),
+    onSuccess: () => {
+      toast.success('Requisition approved');
+      queryClient.invalidateQueries({ queryKey: ['requisitions'] });
+    },
+    onError: (err: Error) => {
+      if (err.message.includes('409') || err.message.includes('Already approved')) toast.error('Already approved');
+      else toast.error(err.message);
     }
-  }
+  }));
+
+  let isSubmitting = $derived(approveMut.isPending);
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleString();
@@ -55,26 +48,34 @@
     
     <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
       <div>
-        <div class="flex items-center gap-2 mb-2">
-          {#if reqDetail.status === 'drafted'}
-            <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><Clock class="h-3 w-3"/> Drafted</Badge>
-          {:else if reqDetail.status === 'approved'}
-            <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Approved</Badge>
-          {:else}
-            <Badge variant="outline" class="gap-1">{reqDetail.status}</Badge>
-          {/if}
-          <span class="font-mono text-xs text-muted-foreground">{reqDetail.id}</span>
-        </div>
-        <h1 class="text-3xl font-bold tracking-tight">Requisition Review</h1>
-        <p class="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-          <MapPin class="h-4 w-4" /> {reqDetail.rhuName}
-        </p>
+        {#if reqDetail}
+          <div class="flex items-center gap-2 mb-2">
+            {#if reqDetail.status === 'drafted'}
+              <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><Clock class="h-3 w-3"/> Drafted</Badge>
+            {:else if reqDetail.status === 'approved'}
+              <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Approved</Badge>
+            {:else}
+              <Badge variant="outline" class="gap-1">{reqDetail.status}</Badge>
+            {/if}
+            <span class="font-mono text-xs text-muted-foreground">{reqDetail.id}</span>
+          </div>
+          <h1 class="text-3xl font-bold tracking-tight">Requisition Review</h1>
+          <p class="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+            <MapPin class="h-4 w-4" /> {reqDetail.rhuName}
+          </p>
+        {:else if reqQuery.isPending}
+          <Skeleton class="h-6 w-24 mb-3" />
+          <Skeleton class="h-10 w-64 mb-2" />
+          <Skeleton class="h-5 w-48" />
+        {:else}
+          <p class="text-destructive">Failed to load requisition.</p>
+        {/if}
       </div>
       <div class="flex gap-2">
-        <Button variant="outline" disabled={reqDetail.status !== 'drafted' || isSubmitting}>Reject</Button>
+        <Button variant="outline" disabled={!reqDetail || reqDetail.status !== 'drafted' || isSubmitting}>Reject</Button>
         <Button 
-          disabled={reqDetail.status !== 'drafted' || isSubmitting}
-          onclick={() => approveRequisition(reqDetail.id)}
+          disabled={!reqDetail || reqDetail.status !== 'drafted' || isSubmitting}
+          onclick={() => approveMut.mutate(reqDetail!.id)}
           class="gap-2">
           <ShieldCheck class="h-4 w-4" /> {isSubmitting ? 'Approving...' : 'Approve & Sign'}
         </Button>
@@ -93,28 +94,28 @@
         <Table.Root>
           <Table.Header>
             <Table.Row>
-              <Table.Head>Medicine</Table.Head>
-              <Table.Head class="text-right">Current Stock</Table.Head>
+              <Table.Head>Item</Table.Head>
               <Table.Head class="text-right">Requested Qty</Table.Head>
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {#each reqDetail.items || [] as item}
-              <Table.Row>
-                <Table.Cell class="font-medium">
-                  <div class="flex items-center gap-2">
-                    <Pill class="h-4 w-4 text-muted-foreground" />
-                    {item.genericName}
-                  </div>
-                </Table.Cell>
-                <Table.Cell class="text-right {item.currentStock <= 0 ? 'text-destructive font-semibold' : ''}">{item.currentStock}</Table.Cell>
-                <Table.Cell class="text-right font-bold">{item.quantityRequested}</Table.Cell>
-              </Table.Row>
-            {:else}
-               <Table.Row>
-                 <Table.Cell colspan={3} class="text-center text-muted-foreground">No items in this requisition.</Table.Cell>
-               </Table.Row>
-            {/each}
+            {#if reqDetail}
+              {#each reqDetail!.items || [] as item}
+                <Table.Row>
+                  <Table.Cell>
+                    <div class="flex items-center gap-2 font-medium">
+                      <Pill class="h-4 w-4 text-muted-foreground" />
+                      {item.genericName}
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell class="text-right font-medium">{item.quantityRequested}</Table.Cell>
+                </Table.Row>
+              {:else}
+                <Table.Row>
+                  <Table.Cell colspan={2} class="text-center text-muted-foreground">No items in this requisition.</Table.Cell>
+                </Table.Row>
+              {/each}
+            {/if}
           </Table.Body>
         </Table.Root>
       </Card.Content>
@@ -127,26 +128,27 @@
       </Card.Header>
       <Card.Content>
         <div class="space-y-6">
-          {#each (reqDetail.audit || []) as log}
-            <div class="flex gap-4">
-              <div class="mt-1 {log.actorType === 'system' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/40' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40'} p-1.5 rounded-full">
-                {#if log.actorType === 'system'}
-                   <Clock class="h-4 w-4" />
-                {:else}
-                   <CheckCircle2 class="h-4 w-4" />
-                {/if}
+          {#if reqDetail}
+            {#each reqDetail!.audit || [] as log}
+              <div class="flex gap-4">
+                <div class="mt-1 {log.actorType === 'system' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/40' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40'} p-1.5 rounded-full">
+                  {#if log.actorType === 'system'}
+                     <Clock class="h-4 w-4" />
+                  {:else}
+                     <CheckCircle2 class="h-4 w-4" />
+                  {/if}
+                </div>
+                <div>
+                  <p class="font-medium text-sm">{log.eventType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">By {log.actorType}</p>
+                  <p class="text-xs mt-1 {log.actorType === 'system' ? 'text-amber-600/80 dark:text-amber-400' : 'text-emerald-600/80 dark:text-emerald-400'}">{formatDate(log.createdAt)}</p>
+                </div>
               </div>
-              <div>
-                <p class="font-medium text-sm">{log.eventType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
-                <p class="text-xs text-muted-foreground mt-0.5">By {log.actorType}</p>
-                <p class="text-xs mt-1 {log.actorType === 'system' ? 'text-amber-600/80 dark:text-amber-400' : 'text-emerald-600/80 dark:text-emerald-400'}">{formatDate(log.createdAt)}</p>
-              </div>
-            </div>
           {:else}
              <p class="text-sm text-muted-foreground">No audit logs available.</p>
           {/each}
           
-          {#if !reqDetail.audit?.find((log: any) => log.eventType.includes('approv')) && reqDetail.status === 'drafted'}
+          {#if !reqDetail!.audit?.find((log: any) => log.eventType.includes('approv')) && reqDetail!.status === 'drafted'}
             <div class="flex gap-4 opacity-50">
               <div class="mt-1 bg-muted p-1.5 rounded-full">
                 <CheckCircle2 class="h-4 w-4" />
@@ -156,6 +158,7 @@
                 <p class="text-xs text-muted-foreground mt-0.5">Pending</p>
               </div>
             </div>
+          {/if}
           {/if}
         </div>
       </Card.Content>
