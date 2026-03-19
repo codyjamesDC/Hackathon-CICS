@@ -3,9 +3,9 @@
  * These match the values seeded in the backend database.
  */
 export const SEED_IDS = {
-  MHO_ID: 'cef0a0f1-33cd-42b7-94ca-06774ff70e37',
-  NURSE_ID: '13217702-e1d5-4bfb-bb56-1aec4b8783db',
-  RHU_ID: 'b9b2ec99-379c-49e0-bb08-02503f956f26',
-  MUNICIPALITY_ID: '9f7bdeb0-aeda-4edb-bfd7-9bc5d6163cfd',
-  AMOX_ID: 'aac02163-aae8-424c-af84-c2134e7cf30b',
+  MHO_ID: 'a65de6fe-ad41-49dc-a29f-b5d84824c374',
+  NURSE_ID: '8bfcfbcf-74a7-4ee8-9cba-4139352e2f1a',
+  RHU_ID: '00000000-0000-0000-0000-000000000003',
+  MUNICIPALITY_ID: '00000000-0000-0000-0000-000000000002',
+  AMOX_ID: '56aad6bc-e75a-4b26-9e93-e1749f5bbd65',
 } as const;

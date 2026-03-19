@@ -33,6 +33,10 @@ async function fetchAlerts() {
   return apiClient<Alert[]>(ENDPOINTS.ALERTS);
 }
 
+async function fetchRhuList(municipalityId: string) {
+  return apiClient<any[]>(`${ENDPOINTS.RHU_LIST}?municipalityId=${municipalityId}`);
+}
+
 // ---- Mutation functions ----
 
 export async function approveRequisition(id: string) {
@@ -72,5 +76,10 @@ export const queries = {
     queryKey: ['alerts'] as const,
     queryFn: () => fetchAlerts(),
     refetchInterval: 30_000,
+  }),
+
+  rhuList: (municipalityId: string) => ({
+    queryKey: ['rhus', municipalityId] as const,
+    queryFn: () => fetchRhuList(municipalityId),
   }),
 };

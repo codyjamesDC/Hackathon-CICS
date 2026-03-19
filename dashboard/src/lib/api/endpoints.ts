@@ -6,7 +6,8 @@ export const ENDPOINTS = {
   REQUISITION_DETAIL: (id: string) => `/api/requisitions/${id}`,
   REQUISITION_APPROVE: (id: string) => `/api/requisitions/${id}/approve`,
   
-  ALERTS: '/api/alerts' // Not defined in API_CONTRACT yet, but needed for Phase 6
+  ALERTS: '/api/alerts',
+  RHU_LIST: '/api/rhu'
 } as const;
 
 // --------------- Dashboard Interfaces ---------------
