@@ -4,18 +4,27 @@
   import * as Table from "$lib/components/ui/table/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
   import { Building2, AlertTriangle, MapPin } from 'lucide-svelte';
-  import { Skeleton } from "$lib/components/ui/skeleton/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import { SEED_IDS } from '$lib/api/constants';
 
-  const rhusQuery = createQuery(() => queries.rhuList(SEED_IDS.MUNICIPALITY_ID));
+  const heatmapQuery = createQuery(() => queries.heatmap(SEED_IDS.MUNICIPALITY_ID));
 
-  let rhus = $derived((rhusQuery.data as any[]) ?? []);
+  function getUrgencyWeight(status: string) {
+    if (status === 'critical') return 1;
+    if (status === 'warning') return 2;
+    if (status === 'ok') return 3;
+    return 4; // silent
+  }
+
+  let rhus = $derived(
+    ((heatmapQuery.data as any[]) ?? []).slice().sort((a, b) => getUrgencyWeight(a.status) - getUrgencyWeight(b.status))
+  );
 </script>
 
 <div class="px-6 py-8 max-w-7xl mx-auto space-y-8">
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">Rural Health Units</h1>
+      <h1 class="text-3xl font-bold tracking-tight">RHU Directory</h1>
       <p class="text-muted-foreground mt-1 text-base">Directory of monitored healthcare facilities in Nagcarlan.</p>
     </div>
   </div>
@@ -32,7 +41,7 @@
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {#if rhusQuery.isPending}
+          {#if heatmapQuery.isPending}
             {#each Array(5) as _}
               <Table.Row>
                 <Table.Cell><Skeleton class="h-5 w-48" /></Table.Cell>
@@ -41,12 +50,12 @@
                 <Table.Cell class="text-right"><Skeleton class="h-8 w-24 ml-auto" /></Table.Cell>
               </Table.Row>
             {/each}
-          {:else if rhusQuery.isError}
+          {:else if heatmapQuery.isError}
             <Table.Row>
               <Table.Cell colspan={4} class="text-center text-destructive h-32">
                 <AlertTriangle class="h-6 w-6 mx-auto mb-2 opacity-80" />
                 <p>Failed to load RHUs.</p>
-                <p class="text-xs opacity-70 mt-1">{rhusQuery.error?.message}</p>
+                <p class="text-xs opacity-70 mt-1">{heatmapQuery.error?.message}</p>
               </Table.Cell>
             </Table.Row>
           {:else}
@@ -57,7 +66,7 @@
                     <div class="bg-primary/10 text-primary p-2 rounded-lg">
                       <Building2 class="h-4 w-4" />
                     </div>
-                    {rhu.name}
+                    {rhu.rhuName}
                   </div>
                 </Table.Cell>
                 <Table.Cell>
@@ -67,12 +76,24 @@
                   </div>
                 </Table.Cell>
                 <Table.Cell>
-                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                     Active
-                   </span>
+                   {#if rhu.status === 'silent'}
+                     <Badge variant="outline" class="gap-1 text-muted-foreground bg-muted">Silent</Badge>
+                   {:else if rhu.worstDaysRemaining < 7}
+                     <Badge variant="destructive" class="gap-1 bg-red-500 hover:bg-red-600">
+                       &lt; 7d
+                     </Badge>
+                   {:else if rhu.worstDaysRemaining < 14}
+                     <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1 bg-amber-500/10">
+                       {rhu.worstDaysRemaining.toFixed(1)}d
+                     </Badge>
+                   {:else}
+                     <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1 bg-emerald-500/10">
+                       {rhu.worstDaysRemaining.toFixed(1)}d
+                     </Badge>
+                   {/if}
                 </Table.Cell>
                 <Table.Cell class="text-right">
-                  <a href={`/rhu/${rhu.id}`} class="text-sm font-medium text-primary hover:underline underline-offset-4">
+                  <a href={`/rhu/${rhu.rhuId}`} class="text-sm font-medium text-primary hover:underline underline-offset-4">
                     View Inventory →
                   </a>
                 </Table.Cell>

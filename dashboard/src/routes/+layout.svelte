@@ -6,7 +6,6 @@
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 
 	import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/svelte-query';
-	import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools';
 	import { Loader2 } from 'lucide-svelte';
 	
 	const queryClient = new QueryClient();
@@ -55,5 +54,4 @@
 	</div>
 </div>
 
-<SvelteQueryDevtools />
 </QueryClientProvider>

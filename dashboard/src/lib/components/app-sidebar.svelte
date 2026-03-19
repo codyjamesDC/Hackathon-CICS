@@ -15,7 +15,7 @@
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "RHUs", href: "/rhu", icon: Building2 },
+    { name: "RHU Directory", href: "/rhu", icon: Building2 },
     { name: "Requisitions", href: "/requisitions", icon: FileText },
     { name: "Alerts", href: "/alerts", icon: BellRing },
   ];
@@ -50,7 +50,6 @@
           href={item.href} 
           aria-label={item.name} 
           title={item.name}
-          onclick={() => isOpen = false}
           class="w-[52px] h-[52px] rounded-[1.2rem] flex items-center justify-center transition-all duration-300 group
             {page.url.pathname === item.href || (item.href !== '/' && page.url.pathname.startsWith(item.href)) 
               ? 'bg-zinc-800 text-white shadow-md' 

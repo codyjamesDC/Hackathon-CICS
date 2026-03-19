@@ -47,7 +47,7 @@
       attributionControl: false
     });
 
-    mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-left');
+    mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
     mapInstance.on('load', async () => {
       if (!mapInstance) return;

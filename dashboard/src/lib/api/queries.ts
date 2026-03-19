@@ -5,6 +5,7 @@ import {
   type DashboardRhuDetail,
   type Requisition,
   type Alert,
+  type StockEntry,
 } from './endpoints';
 
 // ---- Fetch functions ----
@@ -35,6 +36,10 @@ async function fetchAlerts() {
 
 async function fetchRhuList(municipalityId: string) {
   return apiClient<any[]>(`${ENDPOINTS.RHU_LIST}?municipalityId=${municipalityId}`);
+}
+
+async function fetchStockEntries(rhuId: string, medicineId: string) {
+  return apiClient<StockEntry[]>(`${ENDPOINTS.STOCK_ENTRIES}?rhuId=${rhuId}&medicineId=${medicineId}&limit=30`);
 }
 
 // ---- Mutation functions ----
@@ -81,5 +86,11 @@ export const queries = {
   rhuList: (municipalityId: string) => ({
     queryKey: ['rhus', municipalityId] as const,
     queryFn: () => fetchRhuList(municipalityId),
+  }),
+
+  stockEntries: (rhuId: string, medicineId: string) => ({
+    queryKey: ['stock-entries', rhuId, medicineId] as const,
+    queryFn: () => fetchStockEntries(rhuId, medicineId),
+    enabled: !!medicineId,
   }),
 };

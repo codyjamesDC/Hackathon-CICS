@@ -7,7 +7,8 @@ export const ENDPOINTS = {
   REQUISITION_APPROVE: (id: string) => `/api/requisitions/${id}/approve`,
   
   ALERTS: '/api/alerts',
-  RHU_LIST: '/api/rhu'
+  RHU_LIST: '/api/rhu',
+  STOCK_ENTRIES: '/api/stock-entries',
 } as const;
 
 // --------------- Dashboard Interfaces ---------------
@@ -23,6 +24,12 @@ export interface DashboardHeatmapRow {
   breachCount: number;
   lastReportedAt: string;
   status: 'critical' | 'warning' | 'ok' | 'silent';
+}
+
+export interface StockEntry {
+  id: string;
+  quantityOnHand: number;
+  submittedAt: string;
 }
 
 export interface DashboardMedicineStatus {

@@ -46,6 +46,7 @@
 		"@types/topojson-client": "^3.1.5",
 		"bits-ui": "^2.16.3",
 		"clsx": "^2.1.1",
+		"echarts": "^6.0.0",
 		"lucide-svelte": "^0.577.0",
 		"maplibre-gl": "^5.20.2",
 		"mode-watcher": "^1.1.0",
