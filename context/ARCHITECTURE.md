@@ -9,7 +9,7 @@
 
 ```
 Hackathon-CICS/
-├── frontend/        # Flutter mobile app (Nurse offline app)
+├── frontend/        # Flutter mobile app (Nurse app)
 ├── dashboard/       # SvelteKit web app (MHO admin dashboard)
 ├── backend/         # Hono API server (business logic layer)
 ├── context/         # Project documentation and agentic context
@@ -21,7 +21,7 @@ Hackathon-CICS/
 ## 1. Frontend (Nurse App)
 
 **Runtime:** Flutter (Dart SDK ^3.11.1)
-**Target Platform:** Android (primary), offline-first, low-end device optimized
+**Target Platform:** Android (primary)
 
 ### State Management
 | Package | Version | Purpose |
@@ -30,22 +30,11 @@ Hackathon-CICS/
 | `riverpod_annotation` | ^4.0.2 | Annotation support for Riverpod |
 | `riverpod_generator` | ^4.0.3 | Code generation for `@riverpod` annotations |
 
-### Local Database (Offline-First)
-| Package | Version | Purpose |
-|---|---|---|
-| `drift` | ^2.31.0 | SQLite ORM — offline queue, local cache |
-| `sqlite3_flutter_libs` | ^0.6.0 | SQLite native binaries for Android/iOS |
-| `path_provider` | ^2.1.5 | Resolve local DB file path |
-| `path` | ^1.9.1 | Path utilities for DB setup |
-| `drift_dev` | ^2.31.0 | Code generation for Drift schemas |
-
-> Drift stores stock submissions locally when the device is offline. On connectivity restore, the queue syncs to Supabase via the Hono backend.
 
 ### Networking
 | Package | Version | Purpose |
 |---|---|---|
 | `dio` | ^5.9.2 | HTTP client — API calls to Hono backend |
-| `connectivity_plus` | ^7.0.0 | Detect network state, trigger offline queue flush |
 
 ### UI & Visualization
 | Package | Version | Purpose |
@@ -74,7 +63,7 @@ Hackathon-CICS/
 ### Dev Tools
 | Package | Version | Purpose |
 |---|---|---|
-| `build_runner` | ^2.13.0 | Runs code generation (Drift + Riverpod) |
+| `build_runner` | ^2.13.0 | Runs code generation (Riverpod) |
 | `flutter_lints` | ^6.0.0 | Lint rules |
 
 ---
@@ -159,22 +148,17 @@ Hackathon-CICS/
 ```
 Nurse submits stock count
   │
-  ├── [offline] → saved to Drift (local SQLite queue)
-  │                 └── connectivity returns → synced to Hono
-  │
-  └── [online] → Dio sends to Hono API
-                    └── Hono runs velocity engine
-                          └── writes to Supabase
-                                └── threshold breach?
-                                      ├── yes → draft requisition + notify MHO
-                                      └── no  → update dashboard
+  └── Dio sends to Hono API
+        └── Hono runs velocity engine
+              └── writes to Supabase
+                    └── threshold breach?
+                          ├── yes → draft requisition + notify MHO
+                          └── no  → update dashboard
 ```
 
 ---
 
-## Code Generation
-
-After modifying Drift schemas or Riverpod providers, run:
+After modifying Riverpod providers, run:
 
 ```bash
 cd frontend
@@ -187,5 +171,5 @@ dart run build_runner build --delete-conflicting-outputs
 
 | Role | Access |
 |---|---|
-| **Nurse** | Submit stock counts, view days-remaining per medicine, see sync status |
+| **Nurse** | Submit stock counts, view days-remaining per medicine |
 | **MHO** | Heatmap dashboard, approve requisitions, receive breach + silence alerts |

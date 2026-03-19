@@ -20,11 +20,10 @@ The DOH's existing MIS is a desktop compliance tool that nurses fill out monthly
 
 Two interfaces, one system:
 
-### Nurse App (Flutter, offline-first)
+### Nurse App (Flutter)
 - Submit a stock count in 90 seconds
 - See **days remaining** per medicine (not just quantity)
-- Works fully offline — submissions queue locally and sync when signal returns
-- Optimized for low-end Android devices with intermittent connectivity
+- Simple, high-speed interface optimized for low-end Android devices
 
 ### MHO Dashboard (SvelteKit, Web)
 - Spatial heatmap of all RHUs in the municipality (MapLibre GL / PostGIS-powered)

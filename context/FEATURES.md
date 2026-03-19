@@ -11,7 +11,7 @@ Each feature is described with its purpose, inputs/outputs, and dependencies on 
 **User Flow:**
 1. Nurse opens app → sees list of medicines assigned to their RHU
 2. Enters current quantity on hand for each medicine
-3. Taps submit → entry saved locally (Drift) and queued for sync
+3. Taps submit → entry saved directly to backend API
 
 **Inputs:**
 - Medicine ID
@@ -20,9 +20,7 @@ Each feature is described with its purpose, inputs/outputs, and dependencies on 
 - Timestamp (auto)
 
 **Outputs:**
-- `stock_entry` record saved locally and synced to backend
-
-**Offline behavior:** Saved to Drift SQLite. Sync queue flushes on connectivity restore via `connectivity_plus`.
+- `stock_entry` record saved to backend
 
 **Dependencies:** Auth (to know which RHU/nurse), Medicine catalog (to show medicine list)
 
@@ -152,22 +150,6 @@ threshold_breach
 
 ---
 
-## 7. Offline Sync Queue
-
-**Purpose:** Ensure the app works fully offline. Queue all writes locally and sync when connectivity returns.
-
-**Implementation:**
-- Drift SQLite stores all pending submissions in a `sync_queue` table
-- `connectivity_plus` monitors network state
-- On connectivity restore, the mobile app batches remaining entries to `POST /api/stock-entries/batch`
-- **Crucial Backend Handling:** The backend immediately strictly sorts the incoming queue by the raw offline `submittedAt` timestamps (ascending). This ensures causality inside the EWMA Engine is protected and that chronological velocities calculate perfectly regardless of exact reception times.
-- Backend responds with sync confirmation; queue entries marked as synced
-- Conflict resolution: server timestamp wins (last-write-wins for stock entries)
-
-**Dependencies:** Drift (local DB), Dio (HTTP client), connectivity_plus
-
----
-
 ## 8. Participation Monitoring
 
 **Purpose:** Detect when an RHU goes silent (no stock entries for X days). Silence ≠ safety.
@@ -191,7 +173,6 @@ threshold_breach
 | Threshold breach | MHO | Medicine projected to hit zero within 7-14 days |
 | Anomaly spike | MHO | Consumption velocity > 2x baseline |
 | Participation alert | MHO | RHU silent for X days |
-| Sync confirmation | Nurse | Offline queue successfully synced |
 
 **Frontend:** `flutter_local_notifications` for on-device alerts
 **Backend:** Push notifications and/or Supabase Realtime for live dashboard updates

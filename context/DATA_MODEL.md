@@ -2,7 +2,7 @@
 
 ## Overview
 
-All persistent data lives in Supabase PostgreSQL with PostGIS enabled. The Flutter app maintains a local Drift (SQLite) cache for offline-first operation.
+All persistent data lives in Supabase PostgreSQL with PostGIS enabled.
 
 ---
 
@@ -83,7 +83,6 @@ rhu ───────────┬─────────────�
 | `nurse_id` | uuid | FK → `users` |
 | `quantity_on_hand` | integer | Current stock count |
 | `submitted_at` | timestamptz | When nurse submitted |
-| `synced_at` | timestamptz | NULL if not yet synced |
 | `created_at` | timestamptz | Server receive time |
 
 ### `consumption_baselines`
@@ -147,17 +146,6 @@ rhu ───────────┬─────────────�
 > **Audit log is append-only.** No UPDATE or DELETE operations. This table is the paper trail.
 
 ---
-
-## Local SQLite Schema (Drift)
-
-The Flutter app mirrors a subset of these tables locally for offline operation:
-
-| Local Table | Purpose |
-|---|---|
-| `local_stock_entries` | Pending submissions not yet synced |
-| `local_medicines` | Cached medicine catalog |
-| `local_sync_queue` | Queue of API calls to replay on connectivity |
-| `local_baselines` | Cached consumption baselines for days-remaining display |
 
 ---
 

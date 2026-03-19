@@ -74,7 +74,6 @@ This guarantees that routes don't contain SQL queries, and database updates inst
 | Method | Path | Access | Description |
 |---|---|---|---|
 | POST | `/api/stock-entries` | Nurse | Submit stock count (single). Returns `{ data, velocity }` |
-| POST | `/api/stock-entries/batch` | Nurse | Submit batch (offline sync flush). **Auto-sorts by `submittedAt` chronologically** prior to loops. |
 | GET | `/api/stock-entries?rhuId=` | Auth | Get entries for an RHU |
 
 ### Medicines

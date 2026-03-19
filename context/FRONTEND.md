@@ -3,7 +3,7 @@
 ## Overview
 
 We utilize a decoupled two-client architecture to maximize platform strengths:
-1. **Frontend (`frontend/`)**: Flutter mobile app strictly for the **Nurse** role. Offline-first, optimized for low-end Android devices with intermittent connectivity via local Drift SQLite queuing.
+1. **Frontend (`frontend/`)**: Flutter mobile app strictly for the **Nurse** role. Simple, high-speed interface optimized for low-end Android devices.
 2. **Dashboard (`dashboard/`)**: SvelteKit web app specifically for the **MHO** administrator. Visually premium Tailwind designs, full browser-native HTML canvas mapping architectures for the PostGIS heatmap, and **strictly client-side data fetching via `@tanstack/svelte-query`** (SvelteKit SSR `load` functions are explicitly prohibited).
 
 ---
@@ -16,16 +16,9 @@ lib/
 ├── app.dart                         # MaterialApp + theme configuration
 │
 ├── core/                            # Shared infrastructure
-│   ├── database/                    # Drift database setup
-│   │   ├── app_database.dart        # Database class, tables, DAOs
-│   │   └── app_database.g.dart      # Generated code (build_runner)
-│   ├── network/                     # Networking layer
-│   │   ├── api_client.dart          # Dio instance + interceptors
-│   │   ├── api_endpoints.dart       # Endpoint constants
-│   │   └── connectivity_service.dart # Connectivity monitoring
-│   ├── sync/                        # Offline sync engine
-│   │   ├── sync_service.dart        # Queue flush logic
-│   │   └── sync_queue.dart          # Local queue management
+├── network/                     # Networking layer
+│   ├── api_client.dart          # Dio instance + interceptors
+│   └── api_endpoints.dart       # Endpoint constants
 │   ├── auth/                        # Authentication
 │   │   ├── auth_provider.dart       # Auth state (Riverpod)
 │   │   ├── auth_service.dart        # Login/logout, token refresh
@@ -39,8 +32,7 @@ lib/
 ├── features/                        # Feature modules (one folder per feature)
 │   ├── stock_entry/                 # Nurse: submit stock counts
 │   │   ├── data/
-│   │   │   ├── stock_entry_repository.dart
-│   │   │   └── stock_entry_local_source.dart
+│   │   │   └── stock_entry_repository.dart
 │   │   ├── domain/
 │   │   │   └── stock_entry_model.dart
 │   │   ├── presentation/
@@ -114,25 +106,6 @@ Future<List<StockEntry>> stockEntries(Ref ref) async {
 
 ---
 
-## Offline-First Pattern
-
-```
-User Action
-  │
-  ├── Write to Drift (local SQLite) immediately
-  │     └── Mark as `synced: false`
-  │
-  ├── Check connectivity
-  │     ├── [online]  → Send to Hono API via Dio
-  │     │                 └── On success → mark as `synced: true`
-  │     └── [offline] → Stay in local queue
-  │
-  └── connectivity_plus listener
-        └── On connectivity restored → flush sync queue
-```
-
----
-
 ## Navigation
 
 Role-based routing:
@@ -165,7 +138,7 @@ Use Flutter's `GoRouter` or simple `Navigator` with role-based guards in the aut
 
 ## SvelteKit Dashboard Architecture (MHO)
 
-**MHO Dashboard** uses standard `SvelteKit` file-based `+page.svelte` routing driven by `Tailwind CSS v4` and `shadcn-svelte`.
+**MHO Dashboard** uses standard `SvelteKit` file-based `+page.svelte` routing driven by `Tailwind CSS v4` and `shadcn-svelte`. Standard `tanstack-query` patterns are used for live data fetching.
 
 ### Folder Structure Overview
 ```
@@ -202,7 +175,7 @@ The `dashboard` and `backend` are both node-based TypeScript workspaces. The fro
 
 ## Code Generation
 
-After any change to Drift tables or `@riverpod` annotations:
+After any change to `@riverpod` annotations:
 
 ```bash
 cd frontend
