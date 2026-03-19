@@ -45,79 +45,29 @@ async function seed() {
     const municipalityId = municipalityRes[0].id;
     console.log(`   ✅ Municipality ID: ${municipalityId}\n`);
 
-    // 2. Create RHUs
-    console.log('2. Creating 8 RHUs (Balimbing, Buhanginan, Bambang, Abo, Balayong, Banago, Bayaquitos, Buenavista)');
-    const rhus = await db.insert(schema.rhuTable).values([
-      {
-        id: '00000000-0000-0000-0000-000000000003',
-        name: 'Balimbing RHU',
-        barangay: 'Balimbing',
-        municipalityId,
-        lat: 14.1333,
-        lng: 121.4167,
-      },
-      {
-        id: '00000000-0000-0000-0000-000000000004',
-        name: 'Buhanginan RHU',
-        barangay: 'Buhanginan',
-        municipalityId,
-        lat: 14.1400,
-        lng: 121.4200,
-      },
-      {
-        id: '00000000-0000-0000-0000-000000000005',
-        name: 'Bambang Clinic',
-        barangay: 'Bambang',
-        municipalityId,
-        lat: 14.1500,
-        lng: 121.4100,
-      },
-      {
-        id: '00000000-0000-0000-0000-000000000006',
-        name: 'Abo Wellness Center',
-        barangay: 'Abo',
-        municipalityId,
-        lat: 14.1520,
-        lng: 121.4140,
-      },
-      {
-        id: '00000000-0000-0000-0000-000000000007',
-        name: 'Balayong Community Center',
-        barangay: 'Balayong',
-        municipalityId,
-        lat: 14.1480,
-        lng: 121.4280,
-      },
-      {
-        id: '00000000-0000-0000-0000-000000000008',
-        name: 'Banago Health Center',
-        barangay: 'Banago',
-        municipalityId,
-        lat: 14.1360,
-        lng: 121.4390,
-      },
-      {
-        id: '00000000-0000-0000-0000-000000000009',
-        name: 'Bayaquitos RHU',
-        barangay: 'Bayaquitos',
-        municipalityId,
-        lat: 14.1200,
-        lng: 121.4500,
-      },
-      {
-        id: '00000000-0000-0000-0000-000000000010',
-        name: 'Buenavista Primary Care',
-        barangay: 'Buenavista',
-        municipalityId,
-        lat: 14.1250,
-        lng: 121.4450,
-      }
-    ]).returning();
-    const rhuId = rhus[0].id; // Retained for terminal output specifically
-    console.log(`   ✅ 8 RHUs created.\n`);
+    // 2. Create RHUs dynamically for Nagcarlan
+    console.log('2. Creating 50 RHUs (Leaving 2 empty gaps)');
+    const allBarangays = [
+      "Abo", "Alibungbungan", "Alumbrado", "Balayong", "Balimbing", "Balinacon", "Bambang", "Banago", "Banca-banca", "Bangcuro", "Banilad", "Bayaquitos", "Buboy", "Buenavista", "Buhanginan", "Bukal", "Bunga", "Cabuyew", "Calumpang", "Kanluran Kabubuhayan", "Silangan Kabubuhayan", "Labangan", "Lawaguin", "Kanluran Lazaan", "Silangan Lazaan", "Lagulo", "Maiit", "Malaya", "Malinao", "Manaol", "Maravilla", "Nagcalbang", "Poblacion II", "Poblacion III", "Oples", "Palayan", "Palina", "Sabang", "San Francisco", "Sibulan", "Silangan Napapatid", "Silangan Ilaya", "Sinipian", "Santa Lucia", "Talahib", "Talangan", "Taytay", "Tipacan", "Wakat", "Yukos"
+      // Skipped: "Poblacion I", "Sulsuguin" to simulate gaps/uncovered RHUs
+    ];
 
-    // 3. Create Users (MHO and Nurses)
-    console.log('3. Creating Users (MHO & Nurses)');
+    const rhus = await db.insert(schema.rhuTable).values(
+      allBarangays.map((barangay, i) => ({
+        id: crypto.randomUUID(),
+        name: `${barangay} Health Center`,
+        barangay,
+        municipalityId,
+        // Approximate varying coordinates around Nagcarlan center
+        lat: 14.1500 + (Math.random() - 0.5) * 0.05,
+        lng: 121.4100 + (Math.random() - 0.5) * 0.05,
+      }))
+    ).returning();
+    const rhuId = rhus[0].id; // Retained for terminal output
+    console.log(`   ✅ 50 RHUs created.\n`);
+
+    // 3. Create Users (MHO and 50 Nurses)
+    console.log('3. Creating Users (MHO & 50 Nurses)');
     const mhoRes = await db.insert(schema.usersTable).values({
       email: 'mho.nagcarlan@example.com',
       name: 'Dr. Maria Clara (MHO Nagcarlan)',
@@ -126,15 +76,22 @@ async function seed() {
     }).returning();
     const mhoId = mhoRes[0].id;
 
-    const nurses = await db.insert(schema.usersTable).values(
-      rhus.map((r, i) => ({
-        email: `nurse${i+1}@example.com`,
-        name: `Nurse ${r.barangay}`,
-        role: 'nurse' as const,
-        rhuId: r.id,
-        municipalityId,
-      }))
-    ).returning();
+    // chunk nurse insertion to avoid Drizzle params limit
+    const nurses = [];
+    const chunkSize = 20;
+    for (let i = 0; i < rhus.length; i += chunkSize) {
+      const chunk = rhus.slice(i, i + chunkSize);
+      const inserted = await db.insert(schema.usersTable).values(
+        chunk.map((r, index) => ({
+          email: `nurse.${r.id.slice(0, 8)}@example.com`,
+          name: `Nurse ${r.barangay}`,
+          role: 'nurse' as const,
+          rhuId: r.id,
+          municipalityId,
+        }))
+      ).returning();
+      nurses.push(...inserted);
+    }
     const nurseId = nurses[0].id;
     console.log(`   ✅ MHO and ${nurses.length} Nurses seeded.\n`);
 
@@ -175,80 +132,44 @@ async function seed() {
 
 
     // 5. Create Historical Stock Entries to build velocity
-    console.log('5. Injecting Base Telemetry for 8 distinct RHUs');
+    console.log('5. Injecting Procedural Telemetry for 50 distinct RHUs');
     
     // Timeframes
     const dayMinus14 = new Date(); dayMinus14.setDate(dayMinus14.getDate() - 14);
-    const dayMinus7 = new Date(); dayMinus7.setDate(dayMinus7.getDate() - 7);
-    const dayMinus1 = new Date(); dayMinus1.setDate(dayMinus1.getDate() - 1); // VERY RECENT
-    const dayMinus10 = new Date(); dayMinus10.setDate(dayMinus10.getDate() - 10); // STALE (Silent)
+    const dayMinus10 = new Date(); dayMinus10.setDate(dayMinus10.getDate() - 10); 
+    const dayMinus1 = new Date(); dayMinus1.setDate(dayMinus1.getDate() - 1); 
 
-    // Helper to inject stock scenario
-    async function injectScenario(rhu: any, nurse: any, medId: string, velocity: number, initialQty: number, durationDays: number, isStale: boolean) {
-      const startDay = isStale ? dayMinus14 : dayMinus14;
-      const endDay = isStale ? dayMinus10 : dayMinus1;
-      const daysDiff = isStale ? 4 : 13;
-      
-      const consumed = velocity * daysDiff;
-      const endQty = Math.max(0, initialQty - consumed); // Prevent negative stocks
-      
-      await db.insert(schema.stockEntriesTable).values({
-        rhuId: rhu.id, medicineId: medId, nurseId: nurse.id,
-        quantityOnHand: initialQty, submittedAt: startDay, syncedAt: startDay,
-      });
-
-      await db.insert(schema.consumptionBaselinesTable).values({
-        rhuId: rhu.id, medicineId: medId,
-        velocity: velocity.toFixed(4),
-        daysRemaining: (initialQty / velocity).toFixed(2),
-        lastUpdated: startDay,
-      });
-
-      await db.insert(schema.stockEntriesTable).values({
-        rhuId: rhu.id, medicineId: medId, nurseId: nurse.id,
-        quantityOnHand: endQty, submittedAt: endDay, syncedAt: endDay,
-      });
-
-      await db.update(schema.consumptionBaselinesTable).set({
-        velocity: velocity.toFixed(4),
-        daysRemaining: velocity > 0 ? (endQty / velocity).toFixed(2) : '999.00',
-        lastUpdated: endDay,
-      }).where(and(eq(schema.consumptionBaselinesTable.medicineId, medId), eq(schema.consumptionBaselinesTable.rhuId, rhu.id)));
+    for (let i = 0; i < rhus.length; i++) {
+        const rhu = rhus[i];
+        const nurse = nurses[i];
+        const isSilent = i % 10 === 0; // 10% silent
+        const isCritical = i % 7 === 0; // ~14% critical
+        const isWarning = i % 5 === 0 && !isCritical; // ~20% warning
+        
+        let amoxVelocity = Math.floor(Math.random() * 40) + 10; 
+        let amoxInitial = amoxVelocity * 13 + (isCritical ? 50 : (isWarning ? 300 : 2000));
+        
+        let paraVelocity = Math.floor(Math.random() * 80) + 20; 
+        let paraInitial = paraVelocity * 13 + (isWarning ? 600 : 4000);
+        
+        const startDay = isSilent ? dayMinus14 : dayMinus14;
+        const endDay = isSilent ? dayMinus10 : dayMinus1;
+        const daysDiff = isSilent ? 4 : 13;
+        
+        const amoxEnd = Math.max(0, amoxInitial - (amoxVelocity * daysDiff));
+        await db.insert(schema.stockEntriesTable).values({ rhuId: rhu.id, medicineId: amoxId, nurseId: nurse.id, quantityOnHand: amoxInitial, submittedAt: startDay, syncedAt: startDay });
+        await db.insert(schema.consumptionBaselinesTable).values({ rhuId: rhu.id, medicineId: amoxId, velocity: amoxVelocity.toFixed(4), daysRemaining: (amoxInitial / amoxVelocity).toFixed(2), lastUpdated: startDay });
+        await db.insert(schema.stockEntriesTable).values({ rhuId: rhu.id, medicineId: amoxId, nurseId: nurse.id, quantityOnHand: amoxEnd, submittedAt: endDay, syncedAt: endDay });
+        await db.update(schema.consumptionBaselinesTable).set({ velocity: amoxVelocity.toFixed(4), daysRemaining: (amoxEnd / amoxVelocity).toFixed(2), lastUpdated: endDay }).where(and(eq(schema.consumptionBaselinesTable.medicineId, amoxId), eq(schema.consumptionBaselinesTable.rhuId, rhu.id)));
+        
+        const paraEnd = Math.max(0, paraInitial - (paraVelocity * daysDiff));
+        await db.insert(schema.stockEntriesTable).values({ rhuId: rhu.id, medicineId: paracetamolId, nurseId: nurse.id, quantityOnHand: paraInitial, submittedAt: startDay, syncedAt: startDay });
+        await db.insert(schema.consumptionBaselinesTable).values({ rhuId: rhu.id, medicineId: paracetamolId, velocity: paraVelocity.toFixed(4), daysRemaining: (paraInitial / paraVelocity).toFixed(2), lastUpdated: startDay });
+        await db.insert(schema.stockEntriesTable).values({ rhuId: rhu.id, medicineId: paracetamolId, nurseId: nurse.id, quantityOnHand: paraEnd, submittedAt: endDay, syncedAt: endDay });
+        await db.update(schema.consumptionBaselinesTable).set({ velocity: paraVelocity.toFixed(4), daysRemaining: (paraEnd / paraVelocity).toFixed(2), lastUpdated: endDay }).where(and(eq(schema.consumptionBaselinesTable.medicineId, paracetamolId), eq(schema.consumptionBaselinesTable.rhuId, rhu.id)));
     }
 
-    // 1. Balimbing RHU: CRITICAL (Amox depleting very fast)
-    await injectScenario(rhus[0], nurses[0], amoxId, 80, 1100, 13, false); // ~0.75 days left
-    await injectScenario(rhus[0], nurses[0], paracetamolId, 20, 5000, 13, false); // Stable
-
-    // 2. Buhanginan RHU: HEALTHY (Lots of stock)
-    await injectScenario(rhus[1], nurses[1], amoxId, 30, 4000, 13, false); 
-    await injectScenario(rhus[1], nurses[1], paracetamolId, 30, 4000, 13, false);
-
-    // 3. Bambang RHU: WARNING (Amox running a bit low)
-    await injectScenario(rhus[2], nurses[2], amoxId, 50, 1500, 13, false); 
-    await injectScenario(rhus[2], nurses[2], paracetamolId, 100, 2300, 13, false); // 10 days left
-
-    // 4. Abo: SILENT (No updates since 10 days ago)
-    await injectScenario(rhus[3], nurses[3], amoxId, 20, 1000, 4, true); 
-    await injectScenario(rhus[3], nurses[3], paracetamolId, 20, 1000, 4, true);
-
-    // 5. Balayong: CRITICAL (Paracetamol running out fast)
-    await injectScenario(rhus[4], nurses[4], amoxId, 40, 2000, 13, false); 
-    await injectScenario(rhus[4], nurses[4], paracetamolId, 150, 2000, 13, false); // 2000 - 1950 = 50 left. 50/150 = 0.3 days left (< 14 CRITICAL)
-
-    // 6. Banago: HEALTHY
-    await injectScenario(rhus[5], nurses[5], amoxId, 10, 5000, 13, false); 
-    await injectScenario(rhus[5], nurses[5], paracetamolId, 50, 8000, 13, false);
-
-    // 7. Bayaquitos: WARNING (Slight spikes)
-    await injectScenario(rhus[6], nurses[6], amoxId, 60, 1300, 13, false); // 1300 - 780 = 520 left. 520 / 60 = 8.6 days left (Warning >7 && <= 14? Amox threshold is 7, so > 7 is HEALTHY or near Warning. Wait amox buf=7. Actually healthy).
-    await injectScenario(rhus[6], nurses[6], paracetamolId, 80, 2000, 13, false); // 2000 - 1040 = 960 left. 960 / 80 = 12 days left (Warning for para where buf=14)
-
-    // 8. Buenavista: SILENT (Disconnected cluster)
-    await injectScenario(rhus[7], nurses[7], amoxId, 15, 800, 4, true); 
-    await injectScenario(rhus[7], nurses[7], paracetamolId, 40, 1500, 4, true);
-
-    console.log('   ✅ 8 Data Profiles loaded (2 Critical, 2 Healthy, 2 Warning, 2 Silent)\n');
+    console.log('   ✅ 50 Dense Data Profiles procedurally seeded (Critical, Healthy, Warning, Silent clusters mapping correctly)\n');
 
     console.log('====================================================');
     console.log('Seeding Complete! Ready for end-to-end testing.');
@@ -268,7 +189,7 @@ async function seed() {
     console.log(JSON.stringify({
       rhuId,
       medicineId: amoxId,
-      quantityOnHand: 400, // 1650 - 400 = 1250 consumed over 7 days = 178 / day (SPIKE!)
+      quantityOnHand: 400, 
       submittedAt: new Date().toISOString()
     }, null, 2));
 

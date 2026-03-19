@@ -202,20 +202,12 @@
   });
 </script>
 
-<div class="relative w-full h-[calc(100vh-6rem)] rounded-2xl overflow-hidden border border-border/30 shadow-2xl bg-[#09090b]">
+<div class="relative w-full h-full overflow-hidden bg-[#09090b]">
   <!-- Base Map Layer -->
   <div bind:this={mapElement} class="absolute z-0 bg-transparent" style="top: 0; left: 0; width: 100%; height: 100%; min-height: 400px;"></div>
 
   <!-- Floating Overlay Container (Command Center Style) -->
-  <div class="absolute inset-0 z-10 p-5 md:p-6 pointer-events-none flex flex-row justify-between items-start gap-5">
-    
-    <!-- Title Block (Top Left) -->
-    <div class="pointer-events-auto bg-background/60 backdrop-blur-xl border border-border/40 shadow-xl rounded-2xl p-5 max-w-sm transition-all self-start">
-      <h1 class="text-xl font-bold tracking-tight text-foreground">Municipal Dashboard</h1>
-      <p class="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
-        Real-time stockout risk and medical supply velocity tracking across networked Rural Health Units.
-      </p>
-    </div>
+  <div class="absolute inset-0 z-10 p-5 md:p-6 pointer-events-none flex flex-row justify-end items-start gap-5">
 
     <!-- Right Sidebar Panel (~280px wide) -->
     <div class="flex flex-col items-end gap-4 w-full md:w-[280px] self-stretch pointer-events-none">
