@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const AgapApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class AgapApp extends StatelessWidget {
+  const AgapApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Agap Nurse',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
+      title: 'Agap',
+      debugShowCheckedModeBanner: false,
+      theme: AgapTheme.themeData,
       home: const LoginScreen(),
     );
   }

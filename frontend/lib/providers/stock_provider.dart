@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/medicine.dart';
 import '../services/api_service.dart';
-import '../data/local_database.dart';
 
 class StockState {
   final bool isLoading;
@@ -22,11 +21,6 @@ class StockState {
 class StockNotifier extends ChangeNotifier {
   StockState state = StockState();
   final _api = ApiService();
-  final _db = LocalDatabase();
-
-  StockNotifier() {
-    _db.init();
-  }
 
   Future<void> loadMedicines(String token) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -42,16 +36,13 @@ class StockNotifier extends ChangeNotifier {
   }
 
   Future<bool> saveStockEntry(String token, String medicineId, int quantity, String rhuId) async {
-    final entryId = DateTime.now().millisecondsSinceEpoch.toString();
-    await _db.saveEntry(id: entryId, medicineId: medicineId, quantity: quantity, rhuId: rhuId);
     try {
       await _api.submitStockEntry(token, {
         'medicineId': medicineId,
-        'quantity': quantity,
+        'quantityOnHand': quantity,
         'rhuId': rhuId,
-        'timestamp': DateTime.now().toIso8601String(),
+        'submittedAt': DateTime.now().toUtc().toIso8601String(),
       });
-      await _db.markSynced(entryId);
       return true;
     } catch (e) {
       return false;
