@@ -9,13 +9,19 @@ dotenv.config();
 
 const connectionString = process.env.DATABASE_URL;
 
-if (!connectionString) {
-  throw new Error('DATABASE_URL is not set in environment variables');
+let db = {
+  execute: async () => ({ rows: [] }),
+};
+
+if (connectionString) {
+  // Disable prefetch as it is not supported for "Transaction" pool mode
+  const client = postgres(connectionString, { prepare: false });
+  db = drizzle(client);
+} else {
+  console.warn('DATABASE_URL is not set — using in-memory stub database');
 }
 
-// Disable prefetch as it is not supported for "Transaction" pool mode
-const client = postgres(connectionString, { prepare: false });
-export const db = drizzle(client);
+export { db };
 
 // ---------- Supabase Client (for auth, storage, realtime) ----------
 

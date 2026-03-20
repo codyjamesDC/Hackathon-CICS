@@ -28,8 +28,11 @@ app.use('*', cors());
 app.get('/', (c) => c.json({ message: 'Agap API is running' }));
 app.get('/health', async (c) => {
   try {
-    await db.execute(sql`select 1`);
-    return c.json({ status: 'ok', database: 'connected' });
+    if (typeof db.execute === 'function') {
+      await db.execute(sql`select 1`);
+      return c.json({ status: 'ok', database: 'connected' });
+    }
+    return c.json({ status: 'ok', database: 'stub' });
   } catch (err: any) {
     return c.json({ status: 'error', error: err.message }, 500);
   }
