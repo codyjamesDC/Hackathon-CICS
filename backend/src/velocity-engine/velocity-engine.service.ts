@@ -152,7 +152,10 @@ export function calculateVelocity(
   const unitsConsumed = prevQty - currQty;
   if (unitsConsumed <= 0) return 0; // Restocked
 
-  return unitsConsumed / daysElapsed;
+  // Floor at 1 hour to prevent velocity explosion when entries are submitted
+  // seconds/minutes apart (e.g. right after a seed or during testing).
+  const effectiveDays = Math.max(1 / 24, daysElapsed);
+  return unitsConsumed / effectiveDays;
 }
 
 /**
@@ -249,11 +252,16 @@ async function createThresholdBreach(
     `daysRemaining=${daysRemaining.toFixed(1)} projected_zero=${projectedZeroDate.toISOString()}`
   );
 
+  // Order only what is needed to reach a full RESTOCK_PERIOD supply,
+  // accounting for stock already on hand.
+  const thirtyDayNeed = Math.ceil(velocity * RESTOCK_PERIOD_DAYS);
+  const quantityRequested = Math.max(1, thirtyDayNeed - entry.quantityOnHand);
+
   return {
     breachId: breach.id,
     medicineId: entry.medicineId,
     currentStock: entry.quantityOnHand,
     velocity,
-    quantityRequested: Math.ceil(velocity * RESTOCK_PERIOD_DAYS),
+    quantityRequested,
   };
 }

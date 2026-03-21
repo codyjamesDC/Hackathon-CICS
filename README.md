@@ -60,13 +60,17 @@ Hackathon-CICS/
 The predictive engine runs on every stock submission. It produces a smoothed consumption rate using an **Exponentially Weighted Moving Average** with smoothing factor **alpha = 0.3**:
 
 ```
-raw_velocity      = (prev_qty - curr_qty) / days_elapsed
+effective_days    = max(1/24, days_elapsed)          # floor at 1 hour — prevents explosion from rapid re-submissions
+raw_velocity      = (prev_qty - curr_qty) / effective_days
 smoothed_velocity = 0.3 * raw_velocity + 0.7 * previous_average
 days_remaining    = current_qty / smoothed_velocity
-quantity_to_order = ceil(smoothed_velocity * 30)
+thirty_day_need   = ceil(smoothed_velocity * 30)
+quantity_to_order = max(1, thirty_day_need - current_stock)  # net of stock already on hand
 ```
 
 If `days_remaining` falls at or below a medicine's `criticalThresholdDays`, a **threshold breach** is created and a batch requisition is auto-drafted for the MHO to approve.
+
+The `quantity_to_order` formula orders only the **shortfall** — the difference between a full 30-day supply and what the RHU already holds. For example, if velocity is 82 units/day and current stock is 1,800: `ceil(82 × 30) − 1800 = 2460 − 1800 = 660 units` requested.
 
 ---
 
