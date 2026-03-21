@@ -2,7 +2,7 @@
  * Requisition Service — auto-draft → approve → email workflow
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import * as requisitionsRepository from './requisitions.repository.js';
 import { thresholdBreachesTable } from '../alerts/threshold-breaches.schema.js';
@@ -10,47 +10,39 @@ import * as auditService from '../audit/audit.service.js';
 import { NotFound, Conflict } from '../common/utils/exceptions.js';
 import { generateRequisitionPdf } from '../common/pdf/requisition-pdf.js';
 import { sendRequisitionEmail } from '../common/email/email.service.js';
-
-const RESTOCK_PERIOD_DAYS = 30;
+import type { BreachData } from '../velocity-engine/velocity-engine.service.js';
 
 /**
- * Auto-draft a requisition from a threshold breach.
- * Called by the velocity engine when days_remaining <= threshold.
+ * Auto-draft ONE requisition for an entire batch of threshold breaches.
+ * All medicines that breached in the same submission become items on a single form.
  */
-export async function autoDraftFromBreach(
+export async function autoDraftBatch(
   rhuId: string,
-  breachId: string,
-  medicineId: string,
-  currentStock: number,
-  velocity: number,
+  breaches: BreachData[],
 ) {
-  // Calculate quantity to request: enough to cover RESTOCK_PERIOD_DAYS
-  const quantityRequested = Math.ceil(velocity * RESTOCK_PERIOD_DAYS);
+  if (breaches.length === 0) return null;
 
-  // Create requisition
   const requisition = await requisitionsRepository.create({
     rhuId,
-    breachId,
     status: 'drafted',
   });
 
-  // Create requisition items
-  await requisitionsRepository.createItems([
-    {
+  await requisitionsRepository.createItems(
+    breaches.map(b => ({
       requisitionId: requisition.id,
-      medicineId,
-      quantityRequested,
-      currentStock,
-    },
-  ]);
+      medicineId: b.medicineId,
+      breachId: b.breachId,
+      quantityRequested: b.quantityRequested,
+      currentStock: b.currentStock,
+    })),
+  );
 
-  // Update breach status
+  // Mark all breaches as requisition_drafted
   await db
     .update(thresholdBreachesTable)
     .set({ status: 'requisition_drafted' })
-    .where(eq(thresholdBreachesTable.id, breachId));
+    .where(inArray(thresholdBreachesTable.id, breaches.map(b => b.breachId)));
 
-  // Log to audit trail
   await auditService.log({
     eventType: 'requisition_drafted',
     actorId: null,
@@ -59,16 +51,14 @@ export async function autoDraftFromBreach(
     entityId: requisition.id,
     metadata: {
       rhuId,
-      breachId,
-      medicineId,
-      quantityRequested,
-      currentStock,
+      itemCount: breaches.length,
+      medicines: breaches.map(b => b.medicineId),
     },
   });
 
   console.log(
     `[REQUISITION DRAFTED] id=${requisition.id} rhu=${rhuId} ` +
-    `medicine=${medicineId} qty=${quantityRequested}`,
+    `medicines=${breaches.length} (${breaches.map(b => b.medicineId).join(', ')})`,
   );
 
   return requisition;

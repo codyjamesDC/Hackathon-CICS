@@ -17,10 +17,19 @@ import type { StockEntry } from '../stock-entries/stock-entries.schema.js';
 
 const SMOOTHING_FACTOR = 0.3;
 
+export type BreachData = {
+  breachId: string;
+  medicineId: string;
+  currentStock: number;
+  velocity: number;
+  quantityRequested: number;
+};
+
 export type VelocityResult = {
   velocityPerDay: number;
   daysRemaining: number;
   breachTriggered: boolean;
+  breach?: BreachData;
 };
 
 /**
@@ -100,10 +109,19 @@ export async function processNewEntry(entry: StockEntry): Promise<VelocityResult
       )
       .limit(1);
 
+    let breach: BreachData | undefined;
+
     if (activeBreaches.length === 0) {
       breachTriggered = true;
-      await createThresholdBreach(entry, daysRemaining, ewmaVelocity);
+      breach = await createThresholdBreach(entry, daysRemaining, ewmaVelocity);
     }
+
+    return {
+      velocityPerDay: Math.round(ewmaVelocity * 100) / 100,
+      daysRemaining: Math.round(daysRemaining * 100) / 100,
+      breachTriggered,
+      breach,
+    };
   }
 
   return {
@@ -179,13 +197,15 @@ async function upsertBaseline(
 }
 
 /**
- * Create a threshold breach and auto-draft a requisition.
+ * Create a threshold breach record. Returns breach data for batch requisition drafting.
  */
 async function createThresholdBreach(
   entry: StockEntry,
   daysRemaining: number,
   velocity: number,
-) {
+): Promise<BreachData> {
+  const RESTOCK_PERIOD_DAYS = 30;
+
   // Calculate projected zero date
   const projectedZeroDate = new Date();
   projectedZeroDate.setDate(projectedZeroDate.getDate() + Math.ceil(daysRemaining));
@@ -220,12 +240,16 @@ async function createThresholdBreach(
     },
   });
 
-  // Auto-draft requisition
-  const { autoDraftFromBreach } = await import('../requisitions/requisition.service.js');
-  await autoDraftFromBreach(entry.rhuId, breach.id, entry.medicineId, entry.quantityOnHand, velocity);
-
   console.log(
     `[BREACH] RHU=${entry.rhuId} Medicine=${entry.medicineId} ` +
     `daysRemaining=${daysRemaining.toFixed(1)} projected_zero=${projectedZeroDate.toISOString()}`
   );
+
+  return {
+    breachId: breach.id,
+    medicineId: entry.medicineId,
+    currentStock: entry.quantityOnHand,
+    velocity,
+    quantityRequested: Math.ceil(velocity * RESTOCK_PERIOD_DAYS),
+  };
 }

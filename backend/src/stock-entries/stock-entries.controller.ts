@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { createStockEntryDto, batchStockEntryDto } from './stock-entries.dto.js';
 import * as stockEntriesService from './stock-entries.service.js';
+import { autoDraftBatch } from '../requisitions/requisition.service.js';
 import { BadRequest } from '../common/utils/exceptions.js';
 
 const stockEntriesRoutes = new Hono();
@@ -13,6 +14,9 @@ stockEntriesRoutes.post('/', zValidator('json', createStockEntryDto), async (c) 
   if (!nurseId) throw BadRequest('X-User-Id header is required');
 
   const { entry, velocity } = await stockEntriesService.submitStockEntry(data, nurseId);
+  if (velocity.breach) {
+    await autoDraftBatch(data.rhuId, [velocity.breach]);
+  }
   return c.json({ data: entry, velocity }, 201);
 });
 

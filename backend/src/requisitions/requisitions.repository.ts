@@ -132,7 +132,7 @@ export async function updateStatus(
   return rows[0];
 }
 
-/** Full requisition data needed for PDF generation — joins municipality, MHO user, breach */
+/** Full requisition data needed for PDF generation — joins municipality, MHO user */
 export async function findByIdRich(id: string) {
   const rows = await db
     .select({
@@ -143,34 +143,29 @@ export async function findByIdRich(id: string) {
       province: municipalitiesTable.province,
       mhoName: usersTable.name,
       approvedAt: requisitionsTable.approvedAt,
-      projectedZeroDate: thresholdBreachesTable.projectedZeroDate,
     })
     .from(requisitionsTable)
     .innerJoin(rhuTable, eq(requisitionsTable.rhuId, rhuTable.id))
     .innerJoin(municipalitiesTable, eq(rhuTable.municipalityId, municipalitiesTable.id))
     .leftJoin(usersTable, eq(requisitionsTable.approvedBy, usersTable.id))
-    .leftJoin(thresholdBreachesTable, eq(requisitionsTable.breachId, thresholdBreachesTable.id))
     .where(eq(requisitionsTable.id, id));
 
   if (!rows[0]) return null;
   const req = rows[0];
 
+  // Join projectedZeroDate per item via the item's own breachId
   const items = await db
     .select({
       genericName: medicinesTable.genericName,
       unit: medicinesTable.unit,
       quantityRequested: requisitionItemsTable.quantityRequested,
       currentStock: requisitionItemsTable.currentStock,
+      projectedZeroDate: thresholdBreachesTable.projectedZeroDate,
     })
     .from(requisitionItemsTable)
     .innerJoin(medicinesTable, eq(requisitionItemsTable.medicineId, medicinesTable.id))
+    .leftJoin(thresholdBreachesTable, eq(requisitionItemsTable.breachId, thresholdBreachesTable.id))
     .where(eq(requisitionItemsTable.requisitionId, id));
 
-  return {
-    ...req,
-    items: items.map(i => ({
-      ...i,
-      projectedZeroDate: req.projectedZeroDate ?? null,
-    })),
-  };
+  return { ...req, items };
 }

@@ -121,14 +121,17 @@ async function run() {
 
     const velocity = parseFloat(critical.velocity);
     const currentStock = Math.round(velocity * parseFloat(critical.daysRemaining));
+    const quantityRequested = Math.ceil(velocity * 30);
 
-    await requisitionService.autoDraftFromBreach(
-      critical.rhuId,
-      breach.id,
-      critical.medicineId,
-      currentStock,
-      velocity,
-    );
+    await requisitionService.autoDraftBatch(critical.rhuId, [
+      {
+        breachId: breach.id,
+        medicineId: critical.medicineId,
+        currentStock,
+        velocity,
+        quantityRequested,
+      },
+    ]);
 
     // Re-query after bootstrap
     draftedRows = await db
