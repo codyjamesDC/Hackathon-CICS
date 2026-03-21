@@ -229,6 +229,7 @@ class StockEntryScreen extends ConsumerWidget {
     List<MedicineModel> medicines,
     StockEntryState entryState,
   ) async {
+    FocusScope.of(context).unfocus();
     final notifier = ref.read(stockEntryProvider.notifier);
     final result = await notifier.submitAll(medicines);
 
@@ -238,23 +239,19 @@ class StockEntryScreen extends ConsumerWidget {
       final breaches = result.entries.where((e) => e.velocity.breachTriggered).toList();
       ShadToaster.of(context).show(
         ShadToast(
+          alignment: Alignment.topCenter,
           title: Text(breaches.isEmpty
               ? 'Stock count submitted!'
               : '⚠️ ${breaches.length} threshold breach${breaches.length > 1 ? 'es' : ''} detected'),
-          description: Text(breaches.isEmpty
-              ? '${result.entries.length} entries recorded.'
-              : 'Redirecting to Alerts…'),
+          description: Text('${result.entries.length} entries recorded.'),
         ),
       );
       notifier.reset();
-      if (breaches.isNotEmpty) {
-        await Future.delayed(const Duration(milliseconds: 1200));
-        if (context.mounted) context.go('/alerts');
-      }
     } else {
       final error = ref.read(stockEntryProvider).error;
       ShadToaster.of(context).show(
         ShadToast.destructive(
+          alignment: Alignment.topCenter,
           title: const Text('Submission failed'),
           description: Text(error ?? 'Unknown error'),
         ),
@@ -293,8 +290,11 @@ class _MedicineTileState extends State<_MedicineTile> {
   void didUpdateWidget(_MedicineTile old) {
     super.didUpdateWidget(old);
     final newText = widget.quantity > 0 ? widget.quantity.toString() : '';
-    if (_ctrl.text != newText && !_ctrl.selection.isValid) {
-      _ctrl.text = newText;
+    if (_ctrl.text != newText) {
+      _ctrl.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newText.length),
+      );
     }
   }
 

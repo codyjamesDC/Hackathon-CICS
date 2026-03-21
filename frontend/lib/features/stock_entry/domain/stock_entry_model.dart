@@ -77,8 +77,8 @@ class StockEntryResponse {
 
   factory StockEntryResponse.fromJson(Map<String, dynamic> json) =>
       StockEntryResponse(
-        id: json['id'] as String,
-        rhuId: json['rhuId'] as String,
+        id: json['id'] as String? ?? '',
+        rhuId: json['rhuId'] as String? ?? '',
         medicineId: json['medicineId'] as String,
         velocity: StockEntryVelocity.fromJson(
             json['velocity'] as Map<String, dynamic>),
@@ -91,10 +91,13 @@ class BatchStockEntryResponse {
   const BatchStockEntryResponse({required this.entries});
 
   factory BatchStockEntryResponse.fromJson(Map<String, dynamic> json) {
-    final data = json['data'];
-    if (data is List) {
+    final wrapper = json['data'];
+    // Batch endpoint returns { data: { processed, failed, results: [...] } }
+    if (wrapper is Map<String, dynamic>) {
+      final rawResults = wrapper['results'] as List? ?? [];
       return BatchStockEntryResponse(
-        entries: data
+        entries: rawResults
+            .where((e) => (e as Map<String, dynamic>)['status'] == 'ok')
             .map((e) => StockEntryResponse.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
