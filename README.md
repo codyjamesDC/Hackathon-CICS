@@ -66,7 +66,45 @@ days_remaining    = current_qty / smoothed_velocity
 quantity_to_order = ceil(smoothed_velocity * 30)
 ```
 
-If `days_remaining` falls at or below a medicine's `criticalThresholdDays`, a threshold breach is created and a batch requisition is auto-drafted for the MHO to approve.
+If `days_remaining` falls at or below a medicine's `criticalThresholdDays`, a **threshold breach** is created and a batch requisition is auto-drafted for the MHO to approve.
+
+---
+
+## Anomaly Detection Engine
+
+Running alongside the velocity engine, an anomaly detector fires on every stock submission to catch sudden, unusual consumption spikes that the smoothed EWMA alone might mask.
+
+### Algorithm
+
+```
+velocity_ratio = raw_velocity / baseline_velocity
+if velocity_ratio >= ANOMALY_THRESHOLD (2.0×):  → flag anomaly
+```
+
+The **pre-spike baseline** (EWMA value before the current entry is folded in) is passed directly to the check to prevent the spike from inflating its own reference point.
+
+### Deduplication
+
+Only one open anomaly per `(rhu_id, medicine_id)` pair is allowed at a time. A new spike for the same medicine at the same RHU is silently dropped until the existing alert is acknowledged, preventing alert spam during sustained high-consumption periods.
+
+### Alert lifecycle
+
+| Status | Meaning |
+|---|---|
+| `open` | Active, visible to both nurse app and MHO dashboard |
+| `acknowledged` | MHO has reviewed it; removed from all alert feeds; future spikes can now re-trigger |
+
+### Normalized alert feed (`GET /api/alerts`)
+
+All alert types are merged into a single flat array, sorted by `createdAt` descending:
+
+| Type | Trigger | Severity |
+|---|---|---|
+| `threshold_breach` | `days_remaining ≤ criticalThresholdDays` | `critical` |
+| `anomaly_spike` | `velocity_ratio ≥ 2.0×` | `warning` |
+| `participation_alert` | No stock entry in ≥ 3 days | `info` |
+
+The endpoint is role-aware: `X-User-Role: nurse` scopes to the nurse's own RHU; `X-User-Role: mho` returns all alerts across the municipality.
 
 ---
 
@@ -102,7 +140,9 @@ This creates:
 - 12 medicines with per-medicine critical thresholds
 - 1 MHO user + 50 nurse users
 - Consumption baselines with realistic velocity profiles
-- Abo Health Center is always seeded as critical for demo purposes
+- Threshold breach records derived from any baseline where `daysRemaining ≤ criticalThresholdDays`
+- Anomaly spike alerts seeded on ~6 critical RHUs (including Abo) for Paracetamol and Amoxicillin
+- Abo Health Center is always seeded as critical with pre-populated alerts for demo purposes
 
 **Start the API server:**
 
@@ -200,7 +240,8 @@ X-Rhu-Id: <uuid>         # required for nurse requests
 | GET | `/api/requisitions?municipalityId=&status=` | List requisitions |
 | GET | `/api/requisitions/:id` | Requisition detail with items |
 | POST | `/api/requisitions/:id/approve` | MHO approves, triggers PDF + email |
-| GET | `/api/alerts` | Active threshold breaches |
+| GET | `/api/alerts` | Normalized alert feed — threshold breaches, anomaly spikes, silent facilities (role-scoped by header) |
+| PATCH | `/api/alerts/anomalies/:id/acknowledge` | Acknowledge an anomaly spike; removes it from the feed and unblocks future detection |
 
 ---
 
@@ -208,5 +249,5 @@ X-Rhu-Id: <uuid>         # required for nurse requests
 
 | Role | Client | Capabilities |
 |---|---|---|
-| **Nurse** | Flutter app | Submit stock counts, view days-remaining per medicine, see stock history chart |
-| **MHO** | SvelteKit dashboard | Municipality heatmap, RHU drilldown, approve requisitions (triggers PDF + email to pharmacy) |
+| **Nurse** | Flutter app | Submit stock counts, view days-remaining per medicine, see stock history chart, view RHU-scoped alerts (threshold breaches, anomaly spikes, participation alerts) |
+| **MHO** | SvelteKit dashboard | Municipality heatmap, RHU drilldown, approve requisitions (triggers PDF + email to pharmacy), view and acknowledge municipality-wide alerts |

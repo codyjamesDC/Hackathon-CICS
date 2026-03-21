@@ -30,7 +30,7 @@ class AlertsScreen extends ConsumerWidget {
         },
         data: (summary) {
           print('[SCREEN] alerts loaded: ${summary.alerts.length} items');
-          return _buildContent(context, ref, summary);
+          return _buildContent(ref, summary);
         },
       ),
     );
@@ -41,17 +41,20 @@ class AlertsScreen extends ConsumerWidget {
       enabled: true,
       child: ListView.separated(
         padding: EdgeInsets.all(16.w),
-        itemCount: 5,
-        separatorBuilder: (context, index) => Gap(8.h),
-        itemBuilder: (context, index) => _AlertCard(
-          alert: const MedicineAlert(
-            medicineId: 'x',
-            medicineName: 'Medicine Name Placeholder',
-            unit: 'tablet',
-            daysRemaining: 2.5,
-            velocityPerDay: 12.0,
-            currentStock: 30,
-            severity: AlertSeverity.critical,
+        itemCount: 4,
+        separatorBuilder: (_, __) => Gap(8.h),
+        itemBuilder: (_, __) => _AlertCard(
+          alert: NurseAlert(
+            id: 'x',
+            rhuId: 'x',
+            rhuName: 'Placeholder Health Center',
+            type: NurseAlertType.thresholdBreach,
+            severity: NurseAlertSeverity.critical,
+            title: 'Threshold Breach',
+            message: 'Paracetamol 500mg is projected to run out in 1.2 days.',
+            medicineName: 'Paracetamol 500mg',
+            relatedRequisitionId: null,
+            createdAt: DateTime.now(),
           ),
         ),
       ),
@@ -93,10 +96,7 @@ class AlertsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(
-      BuildContext context, WidgetRef ref, AlertSummary summary) {
-    final actionRequired = summary.actionRequired;
-
+  Widget _buildContent(WidgetRef ref, AlertSummary summary) {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(alertSummaryProvider),
       color: AppColors.primary,
@@ -104,18 +104,15 @@ class AlertsScreen extends ConsumerWidget {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildSummaryBanner(summary)),
-          if (actionRequired.isEmpty)
-            SliverFillRemaining(
-              child: _buildAllClear(),
-            )
+          if (summary.alerts.isEmpty)
+            SliverFillRemaining(child: _buildAllClear())
           else
             SliverPadding(
-              padding:
-                  EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
+              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
               sliver: SliverList.separated(
-                itemCount: actionRequired.length,
-                separatorBuilder: (context, index) => Gap(8.h),
-                itemBuilder: (_, i) => _AlertCard(alert: actionRequired[i]),
+                itemCount: summary.alerts.length,
+                separatorBuilder: (_, __) => Gap(8.h),
+                itemBuilder: (_, i) => _AlertCard(alert: summary.alerts[i]),
               ),
             ),
         ],
@@ -125,7 +122,7 @@ class AlertsScreen extends ConsumerWidget {
 
   Widget _buildSummaryBanner(AlertSummary summary) {
     final criticalCount = summary.critical.length;
-    final warningCount = summary.warnings.length;
+    final spikeCount = summary.anomalySpikes.length;
 
     return Container(
       color: AppColors.surface,
@@ -139,23 +136,17 @@ class AlertsScreen extends ConsumerWidget {
             color: AppColors.statusCritical,
             icon: Iconsax.warning_2,
           ),
-          Gap(12.w),
+          Gap(10.w),
           _SummaryChip(
-            count: warningCount,
-            label: 'Warning',
+            count: spikeCount,
+            label: 'Spikes',
             color: AppColors.statusWarning,
-            icon: Iconsax.info_circle,
+            icon: Iconsax.trend_up,
           ),
           const Spacer(),
-          GestureDetector(
-            onTap: () {},
-            child: Text(
-              '${summary.alerts.length} medicines tracked',
-              style: TextStyle(
-                fontSize: 11.sp,
-                color: AppColors.textMuted,
-              ),
-            ),
+          Text(
+            '${summary.alerts.length} active',
+            style: TextStyle(fontSize: 11.sp, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -170,7 +161,7 @@ class AlertsScreen extends ConsumerWidget {
           Icon(Iconsax.tick_circle, size: 48.sp, color: AppColors.statusOk),
           Gap(12.h),
           Text(
-            'All medicines are stable',
+            'No active alerts',
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.w600,
@@ -179,7 +170,7 @@ class AlertsScreen extends ConsumerWidget {
           ),
           Gap(4.h),
           Text(
-            'No threshold breaches detected.',
+            'Your RHU is operating normally.',
             style: TextStyle(fontSize: 13.sp, color: AppColors.textMuted),
           ),
         ],
@@ -230,23 +221,25 @@ class _SummaryChip extends StatelessWidget {
 }
 
 class _AlertCard extends StatelessWidget {
-  final MedicineAlert alert;
+  final NurseAlert alert;
 
   const _AlertCard({required this.alert});
 
   @override
   Widget build(BuildContext context) {
-    final color = _severityColor(alert.severity);
-    final icon = _severityIcon(alert.severity);
-    final daysText = alert.daysRemaining < 1
-        ? '< 1 day'
-        : '${alert.daysRemaining.toStringAsFixed(1)} days';
+    return switch (alert.type) {
+      NurseAlertType.anomalySpike => _buildAnomalyCard(context),
+      NurseAlertType.participationAlert => _buildParticipationCard(context),
+      NurseAlertType.thresholdBreach => _buildBreachCard(context),
+    };
+  }
 
+  Widget _buildBreachCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        border: Border.all(color: AppColors.statusCritical.withValues(alpha: 0.4)),
       ),
       padding: EdgeInsets.all(14.w),
       child: Row(
@@ -255,48 +248,35 @@ class _AlertCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
+              color: AppColors.statusCritical.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 18.sp, color: color),
+            child: Icon(Iconsax.warning_2, size: 18.sp, color: AppColors.statusCritical),
           ),
           Gap(12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  alert.medicineName,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Gap(3.h),
                 Row(
                   children: [
-                    _InfoPill(
-                      label: daysText,
-                      color: color,
-                    ),
-                    Gap(6.w),
-                    Text(
-                      '${alert.currentStock} ${alert.unit} left',
-                      style: TextStyle(
-                        fontSize: 11.sp,
-                        color: AppColors.textMuted,
+                    Expanded(
+                      child: Text(
+                        alert.medicineName ?? alert.title,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
+                    _TypePill(label: 'Breach', color: AppColors.statusCritical),
                   ],
                 ),
                 Gap(4.h),
                 Text(
-                  '${alert.velocityPerDay.toStringAsFixed(1)} ${alert.unit}/day usage',
-                  style: TextStyle(
-                    fontSize: 11.sp,
-                    color: AppColors.textSecondary,
-                  ),
+                  alert.message,
+                  style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -306,28 +286,116 @@ class _AlertCard extends StatelessWidget {
     );
   }
 
-  Color _severityColor(AlertSeverity s) {
-    return switch (s) {
-      AlertSeverity.critical => AppColors.statusCritical,
-      AlertSeverity.warning => AppColors.statusWarning,
-      AlertSeverity.ok => AppColors.statusOk,
-    };
+  Widget _buildAnomalyCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.statusWarning.withValues(alpha: 0.4)),
+      ),
+      padding: EdgeInsets.all(14.w),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(8.w),
+            decoration: BoxDecoration(
+              color: AppColors.statusWarning.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Iconsax.trend_up, size: 18.sp, color: AppColors.statusWarning),
+          ),
+          Gap(12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        alert.medicineName ?? 'Anomaly Detected',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    _TypePill(label: 'Spike', color: AppColors.statusWarning),
+                  ],
+                ),
+                Gap(4.h),
+                Text(
+                  alert.message,
+                  style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  IconData _severityIcon(AlertSeverity s) {
-    return switch (s) {
-      AlertSeverity.critical => Iconsax.warning_2,
-      AlertSeverity.warning => Iconsax.info_circle,
-      AlertSeverity.ok => Iconsax.tick_circle,
-    };
+  Widget _buildParticipationCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.statusSilent.withValues(alpha: 0.35)),
+      ),
+      padding: EdgeInsets.all(14.w),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(8.w),
+            decoration: BoxDecoration(
+              color: AppColors.statusSilent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Iconsax.notification_status, size: 18.sp, color: AppColors.statusSilent),
+          ),
+          Gap(12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        alert.rhuName.isNotEmpty ? alert.rhuName : 'Silent Facility',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    _TypePill(label: 'Silent', color: AppColors.statusSilent),
+                  ],
+                ),
+                Gap(4.h),
+                Text(
+                  alert.message,
+                  style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _InfoPill extends StatelessWidget {
+class _TypePill extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _InfoPill({required this.label, required this.color});
+  const _TypePill({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -336,12 +404,13 @@ class _InfoPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11.sp,
-          fontWeight: FontWeight.w600,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w700,
           color: color,
         ),
       ),

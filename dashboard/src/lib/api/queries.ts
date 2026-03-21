@@ -44,6 +44,13 @@ async function fetchStockEntries(rhuId: string, medicineId: string) {
 
 // ---- Mutation functions ----
 
+export async function acknowledgeAnomaly(id: string) {
+  return apiClient<{ id: string; status: string }>(
+    ENDPOINTS.ANOMALY_ACKNOWLEDGE(id),
+    { method: 'PATCH' }
+  );
+}
+
 export async function approveRequisition(id: string) {
   return apiClient<{ id: string; status: string; approvedAt: string; approvedBy: string }>(
     ENDPOINTS.REQUISITION_APPROVE(id),

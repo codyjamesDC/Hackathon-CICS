@@ -7,6 +7,7 @@ export const ENDPOINTS = {
   REQUISITION_APPROVE: (id: string) => `/api/requisitions/${id}/approve`,
   
   ALERTS: '/api/alerts',
+  ANOMALY_ACKNOWLEDGE: (id: string) => `/api/alerts/anomalies/${id}/acknowledge`,
   RHU_LIST: '/api/rhu',
   STOCK_ENTRIES: '/api/stock-entries',
 } as const;

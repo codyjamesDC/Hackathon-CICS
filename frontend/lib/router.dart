@@ -59,7 +59,7 @@ abstract final class AppRouter {
               GoRoute(
                 path: '/alerts',
                 name: 'alerts',
-                redirect: (_, __) => '/rhu-status',
+                builder: (context, state) => const AlertsScreen(),
               ),
             ],
           ),

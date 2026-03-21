@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hackathon_cics/core/auth/auth_provider.dart';
 import 'package:hackathon_cics/core/network/connectivity_provider.dart';
 import 'package:hackathon_cics/core/theme/app_colors.dart';
+import 'package:hackathon_cics/features/alerts/presentation/alerts_provider.dart';
 import 'package:hackathon_cics/features/rhu_status/presentation/rhu_status_provider.dart';
 import 'package:hackathon_cics/features/stock_entry/presentation/stock_entry_provider.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -27,6 +28,12 @@ class AppShell extends ConsumerWidget {
       icon: Iconsax.health,
       activeIcon: Iconsax.health_copy,
       path: '/rhu-status',
+    ),
+    _TabItem(
+      label: 'Alerts',
+      icon: Iconsax.notification,
+      activeIcon: Iconsax.notification_copy,
+      path: '/alerts',
     ),
     _TabItem(
       label: 'Profile',
@@ -138,6 +145,7 @@ class AppShell extends ConsumerWidget {
         onDestinationSelected: (i) {
           ref.invalidate(rhuStatusProvider);
           ref.invalidate(medicinesProvider);
+          ref.invalidate(alertSummaryProvider);
           context.go(_tabs[i].path);
         },
         destinations: _tabs

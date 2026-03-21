@@ -261,9 +261,38 @@ async function seed() {
  
     console.log('   ✅ Done.\n');
 
-    // 6. Anomaly Alerts — seed spike events on critical RHUs
-    console.log('6. Seeding Anomaly Alerts (spike events)');
-    const anomalyRhus = rhus.filter((_, i) => i % 10 === 1 || i % 10 === 2).slice(0, 5);
+    // 6. Threshold Breaches — derive from critical baselines
+    console.log('6. Seeding Threshold Breaches from critical baselines');
+    const medicineThresholdMap = new Map<string, number>(
+      medicines.map(m => [m.id, m.criticalThresholdDays])
+    );
+    const breachRows: typeof schema.thresholdBreachesTable.$inferInsert[] = [];
+    for (const baseline of allBaselines) {
+      const threshold = medicineThresholdMap.get(baseline.medicineId) ?? 7;
+      const days = parseFloat(baseline.daysRemaining as string);
+      if (days <= threshold) {
+        const projected = new Date();
+        projected.setDate(projected.getDate() + Math.ceil(days));
+        breachRows.push({
+          rhuId: baseline.rhuId,
+          medicineId: baseline.medicineId,
+          daysRemaining: days.toFixed(2),
+          projectedZeroDate: projected,
+          status: 'open',
+        });
+      }
+    }
+    if (breachRows.length > 0) {
+      const BCHUNK = 200;
+      for (let i = 0; i < breachRows.length; i += BCHUNK) {
+        await db.insert(schema.thresholdBreachesTable).values(breachRows.slice(i, i + BCHUNK));
+      }
+    }
+    console.log(`   ✅ ${breachRows.length} threshold breaches seeded.\n`);
+
+    // 7. Anomaly Alerts — seed spike events on critical RHUs
+    console.log('7. Seeding Anomaly Alerts (spike events)');
+    const anomalyRhus = rhus.filter((_, i) => i === 0 || i % 10 === 1 || i % 10 === 2).slice(0, 6);
     const paracetamol = medicines.find(m => m.genericName === 'Paracetamol 500mg');
     const amoxicillin = medicines.find(m => m.genericName === 'Amoxicillin 500mg');
     const anomalyEntries: typeof schema.anomalyAlertsTable.$inferInsert[] = [];
@@ -297,6 +326,7 @@ async function seed() {
       await db.insert(schema.anomalyAlertsTable).values(anomalyEntries);
     }
     console.log(`   ✅ ${anomalyEntries.length} anomaly alerts seeded.\n`);
+    console.log(`   ✅ Summary: ${breachRows.length} breaches + ${anomalyEntries.length} anomalies ready for demo.\n`);
 
     console.log('====================================================');
     console.log('Seeding Complete!');

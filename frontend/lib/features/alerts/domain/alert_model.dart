@@ -1,58 +1,74 @@
-enum AlertSeverity { critical, warning, ok }
+enum NurseAlertType { thresholdBreach, anomalySpike, participationAlert }
 
-class MedicineAlert {
-  final String medicineId;
-  final String medicineName;
-  final String unit;
-  final double daysRemaining;
-  final double velocityPerDay;
-  final int currentStock;
-  final AlertSeverity severity;
+enum NurseAlertSeverity { critical, warning, info }
 
-  const MedicineAlert({
-    required this.medicineId,
-    required this.medicineName,
-    required this.unit,
-    required this.daysRemaining,
-    required this.velocityPerDay,
-    required this.currentStock,
+class NurseAlert {
+  final String id;
+  final String rhuId;
+  final String rhuName;
+  final NurseAlertType type;
+  final NurseAlertSeverity severity;
+  final String title;
+  final String message;
+  final String? medicineName;
+  final String? relatedRequisitionId;
+  final DateTime createdAt;
+
+  const NurseAlert({
+    required this.id,
+    required this.rhuId,
+    required this.rhuName,
+    required this.type,
     required this.severity,
+    required this.title,
+    required this.message,
+    required this.medicineName,
+    required this.relatedRequisitionId,
+    required this.createdAt,
   });
 
-  factory MedicineAlert.fromDrilldown(Map<String, dynamic> json) {
-    final days = (json['daysRemaining'] as num?)?.toDouble() ?? 0.0;
-    AlertSeverity severity;
-    if (days <= 3) {
-      severity = AlertSeverity.critical;
-    } else if (days <= 7) {
-      severity = AlertSeverity.warning;
-    } else {
-      severity = AlertSeverity.ok;
-    }
+  factory NurseAlert.fromJson(Map<String, dynamic> json) {
+    final typeStr = json['type'] as String? ?? 'threshold_breach';
+    final severityStr = json['severity'] as String? ?? 'warning';
 
-    return MedicineAlert(
-      medicineId: json['medicineId'] as String? ?? '',
-      medicineName: json['genericName'] as String? ?? 'Unknown',
-      unit: json['unit'] as String? ?? '',
-      daysRemaining: days,
-      velocityPerDay: (json['velocityPerDay'] as num?)?.toDouble() ?? 0.0,
-      currentStock: (json['currentStock'] as num?)?.toInt() ?? 0,
+    final type = switch (typeStr) {
+      'anomaly_spike' => NurseAlertType.anomalySpike,
+      'participation_alert' => NurseAlertType.participationAlert,
+      _ => NurseAlertType.thresholdBreach,
+    };
+
+    final severity = switch (severityStr) {
+      'critical' => NurseAlertSeverity.critical,
+      'info' => NurseAlertSeverity.info,
+      _ => NurseAlertSeverity.warning,
+    };
+
+    return NurseAlert(
+      id: json['id'] as String? ?? '',
+      rhuId: json['rhuId'] as String? ?? '',
+      rhuName: json['rhuName'] as String? ?? '',
+      type: type,
       severity: severity,
+      title: json['title'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      medicineName: json['medicineName'] as String?,
+      relatedRequisitionId: json['relatedRequisitionId'] as String?,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
     );
   }
 }
 
 class AlertSummary {
-  final List<MedicineAlert> alerts;
+  final List<NurseAlert> alerts;
 
   const AlertSummary({required this.alerts});
 
-  List<MedicineAlert> get critical =>
-      alerts.where((a) => a.severity == AlertSeverity.critical).toList();
+  List<NurseAlert> get critical =>
+      alerts.where((a) => a.severity == NurseAlertSeverity.critical).toList();
 
-  List<MedicineAlert> get warnings =>
-      alerts.where((a) => a.severity == AlertSeverity.warning).toList();
+  List<NurseAlert> get warnings =>
+      alerts.where((a) => a.severity == NurseAlertSeverity.warning).toList();
 
-  List<MedicineAlert> get actionRequired =>
-      alerts.where((a) => a.severity != AlertSeverity.ok).toList();
+  List<NurseAlert> get anomalySpikes =>
+      alerts.where((a) => a.type == NurseAlertType.anomalySpike).toList();
 }

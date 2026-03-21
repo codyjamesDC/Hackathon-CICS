@@ -4,6 +4,7 @@
     LayoutDashboard, 
     Building2, 
     FileText, 
+    Bell,
     LogOut,
     Menu,
     X
@@ -22,6 +23,7 @@
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "RHU Directory", href: "/rhu", icon: Building2 },
     { name: "Requisitions", href: "/requisitions", icon: FileText },
+    { name: "Alerts", href: "/alerts", icon: Bell },
   ];
 </script>
 
