@@ -46,8 +46,8 @@
 			<!-- Top right options can go here in the future -->
 		</header>
 		
-		<main class="flex-1 {page.url.pathname === '/' ? 'overflow-hidden' : 'p-8 pb-12 overflow-y-auto'}">
-			<div class="w-full {page.url.pathname === '/' ? 'h-screen' : 'mx-auto max-w-[1600px]'}">
+		<main class="flex-1 {page.url.pathname === '/' ? 'overflow-hidden' : 'p-8 pb-12 overflow-y-auto flex flex-col'}">
+			<div class="w-full {page.url.pathname === '/' ? 'h-screen' : 'mx-auto max-w-[1600px] flex flex-col flex-1'}">
 				{@render children()}
 			</div>
 		</main>

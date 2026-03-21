@@ -212,7 +212,9 @@ class StockEntryScreen extends ConsumerWidget {
               )
             : Text(
                 online
-                    ? 'Submit Stock Count ($filledCount)'
+                    ? (filledCount > 0
+                        ? 'Submit ($filledCount of ${medicines.length})'
+                        : 'Submit Stock Count')
                     : 'Offline — Cannot Submit',
                 style: TextStyle(
                   fontSize: 14.sp,

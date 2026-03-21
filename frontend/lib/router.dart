@@ -17,7 +17,29 @@ abstract final class AppRouter {
             builder: (context, state) => const LoginScreen(),
           ),
           ShellRoute(
-            builder: (context, state, child) => AppShell(child: child),
+            pageBuilder: (context, state, child) => CustomTransitionPage(
+              key: state.pageKey,
+              child: AppShell(child: child),
+              transitionDuration: const Duration(milliseconds: 380),
+              reverseTransitionDuration: const Duration(milliseconds: 280),
+              transitionsBuilder: (context, animation, secondary, child) {
+                final fade = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOut,
+                );
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, 0.04),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                ));
+                return FadeTransition(
+                  opacity: fade,
+                  child: SlideTransition(position: slide, child: child),
+                );
+              },
+            ),
             routes: [
               GoRoute(
                 path: '/stock-entry',
@@ -25,14 +47,19 @@ abstract final class AppRouter {
                 builder: (context, state) => const StockEntryScreen(),
               ),
               GoRoute(
-                path: '/alerts',
-                name: 'alerts',
-                builder: (context, state) => const AlertsScreen(),
-              ),
-              GoRoute(
                 path: '/rhu-status',
                 name: 'rhu-status',
                 builder: (context, state) => const RhuStatusScreen(),
+              ),
+              GoRoute(
+                path: '/profile',
+                name: 'profile',
+                builder: (context, state) => const ProfileScreen(),
+              ),
+              GoRoute(
+                path: '/alerts',
+                name: 'alerts',
+                redirect: (_, __) => '/rhu-status',
               ),
             ],
           ),

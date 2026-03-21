@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hackathon_cics/core/auth/auth_provider.dart';
 import 'package:hackathon_cics/core/network/connectivity_provider.dart';
 import 'package:hackathon_cics/core/theme/app_colors.dart';
-import 'package:hackathon_cics/features/alerts/presentation/alerts_provider.dart';
 import 'package:hackathon_cics/features/rhu_status/presentation/rhu_status_provider.dart';
 import 'package:hackathon_cics/features/stock_entry/presentation/stock_entry_provider.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -24,16 +23,16 @@ class AppShell extends ConsumerWidget {
       path: '/stock-entry',
     ),
     _TabItem(
-      label: 'Alerts',
-      icon: Iconsax.notification,
-      activeIcon: Iconsax.notification_copy,
-      path: '/alerts',
-    ),
-    _TabItem(
       label: 'RHU Status',
       icon: Iconsax.health,
       activeIcon: Iconsax.health_copy,
       path: '/rhu-status',
+    ),
+    _TabItem(
+      label: 'Profile',
+      icon: Iconsax.user,
+      activeIcon: Iconsax.user_copy,
+      path: '/profile',
     ),
   ];
 
@@ -89,36 +88,18 @@ class AppShell extends ConsumerWidget {
           ],
         ),
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(36.h),
+          preferredSize: Size.fromHeight(28.h),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w).copyWith(bottom: 8.h),
-            child: Row(
-              children: [
-                Text(
-                  authState.rhuName ?? 'RHU',
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    color: AppColors.textSecondary,
-                  ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                authState.rhuName ?? 'RHU',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: AppColors.textSecondary,
                 ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () async {
-                    final authNotifier = ref.read(authProvider.notifier);
-                    await authNotifier.logout();
-                    if (context.mounted) context.go('/login');
-                  },
-                  child: Text(
-                    'Log out',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      color: AppColors.textMuted,
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppColors.textMuted,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -155,8 +136,6 @@ class AppShell extends ConsumerWidget {
         height: 64.h,
         selectedIndex: currentIndex,
         onDestinationSelected: (i) {
-          // Invalidate data providers on tab switch so they refresh
-          ref.invalidate(alertSummaryProvider);
           ref.invalidate(rhuStatusProvider);
           ref.invalidate(medicinesProvider);
           context.go(_tabs[i].path);

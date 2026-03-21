@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
-import 'package:hackathon_cics/core/auth/auth_provider.dart';
 import 'package:hackathon_cics/core/theme/app_colors.dart';
 import 'package:hackathon_cics/features/rhu_status/domain/rhu_status_model.dart';
 import 'package:hackathon_cics/features/rhu_status/presentation/rhu_status_provider.dart';
@@ -11,13 +10,19 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-class RhuStatusScreen extends ConsumerWidget {
+class RhuStatusScreen extends ConsumerStatefulWidget {
   const RhuStatusScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RhuStatusScreen> createState() => _RhuStatusScreenState();
+}
+
+class _RhuStatusScreenState extends ConsumerState<RhuStatusScreen> {
+  RhuUrgency? _filter;
+
+  @override
+  Widget build(BuildContext context) {
     final statusAsync = ref.watch(rhuStatusProvider);
-    final authState = ref.watch(authProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -28,11 +33,11 @@ class RhuStatusScreen extends ConsumerWidget {
         },
         error: (e, st) {
           print('[SCREEN] rhu status ERROR: $e');
-          return _buildError(e.toString(), ref);
+          return _buildError(e.toString());
         },
         data: (summary) {
           print('[SCREEN] rhu status loaded: ${summary.medicines.length} medicines');
-          return _buildContent(context, ref, summary, authState.rhuName ?? 'My RHU');
+          return _buildContent(summary);
         },
       ),
     );
@@ -44,9 +49,9 @@ class RhuStatusScreen extends ConsumerWidget {
       child: ListView.separated(
         padding: EdgeInsets.all(16.w),
         itemCount: 6,
-        separatorBuilder: (context, index) => Gap(8.h),
-        itemBuilder: (context, index) => _MedicineStatusTile(
-          medicine: const MedicineStatus(
+        separatorBuilder: (_, __) => Gap(8.h),
+        itemBuilder: (_, __) => const _MedicineStatusTile(
+          medicine: MedicineStatus(
             medicineId: 'x',
             medicineName: 'Medicine Name Placeholder',
             unit: 'tablet',
@@ -61,7 +66,7 @@ class RhuStatusScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildError(String message, WidgetRef ref) {
+  Widget _buildError(String message) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(24.w),
@@ -96,13 +101,11 @@ class RhuStatusScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(
-    BuildContext context,
-    WidgetRef ref,
-    RhuStatusSummary summary,
-    String rhuName,
-  ) {
+  Widget _buildContent(RhuStatusSummary summary) {
     final sorted = summary.sorted;
+    final filtered = _filter == null
+        ? sorted
+        : sorted.where((m) => m.urgency == _filter).toList();
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(rhuStatusProvider),
@@ -110,28 +113,44 @@ class RhuStatusScreen extends ConsumerWidget {
       backgroundColor: AppColors.surface,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: _buildStatusHeader(summary, rhuName)),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
-            sliver: SliverList.separated(
-              itemCount: sorted.length,
-              separatorBuilder: (context, index) => Gap(8.h),
-              itemBuilder: (context, i) =>
-                  _MedicineStatusTile(medicine: sorted[i]),
+          SliverToBoxAdapter(child: _buildHeader(summary)),
+          if (filtered.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  'No medicines in this category.',
+                  style: TextStyle(fontSize: 13.sp, color: AppColors.textMuted),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
+              sliver: SliverList.separated(
+                itemCount: filtered.length,
+                separatorBuilder: (_, __) => Gap(8.h),
+                itemBuilder: (_, i) => _MedicineStatusTile(medicine: filtered[i]),
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusHeader(RhuStatusSummary summary, String rhuName) {
+  Widget _buildHeader(RhuStatusSummary summary) {
     final urgencyColor = _urgencyColor(summary.overallUrgency);
     final urgencyLabel = _urgencyLabel(summary.overallUrgency);
 
+    final filters = <({RhuUrgency? urgency, String label})>[
+      (urgency: null, label: 'All'),
+      (urgency: RhuUrgency.critical, label: 'Critical'),
+      (urgency: RhuUrgency.warning, label: 'Warning'),
+      (urgency: RhuUrgency.ok, label: 'Stable'),
+    ];
+
     return Container(
       color: AppColors.surface,
-      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 14.h),
+      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 12.h),
       margin: EdgeInsets.only(bottom: 12.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,13 +158,11 @@ class RhuStatusScreen extends ConsumerWidget {
           Row(
             children: [
               Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                 decoration: BoxDecoration(
                   color: urgencyColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
-                  border:
-                      Border.all(color: urgencyColor.withValues(alpha: 0.35)),
+                  border: Border.all(color: urgencyColor.withValues(alpha: 0.35)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -173,32 +190,50 @@ class RhuStatusScreen extends ConsumerWidget {
               const Spacer(),
               Text(
                 '${summary.medicines.length} medicines',
-                style:
-                    TextStyle(fontSize: 12.sp, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12.sp, color: AppColors.textMuted),
               ),
             ],
           ),
           Gap(12.h),
-          Row(
-            children: [
-              _StatPill(
-                label: '${summary.criticalCount}',
-                sublabel: 'Critical',
-                color: AppColors.statusCritical,
-              ),
-              Gap(8.w),
-              _StatPill(
-                label: '${summary.warningCount}',
-                sublabel: 'Warning',
-                color: AppColors.statusWarning,
-              ),
-              Gap(8.w),
-              _StatPill(
-                label: '${summary.okCount}',
-                sublabel: 'Stable',
-                color: AppColors.statusOk,
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: filters.map((f) {
+                final selected = _filter == f.urgency;
+                final chipColor = f.urgency == null
+                    ? AppColors.primary
+                    : _urgencyColor(f.urgency!);
+                return Padding(
+                  padding: EdgeInsets.only(right: 8.w),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _filter = f.urgency),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? chipColor.withValues(alpha: 0.18)
+                            : AppColors.background,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: selected
+                              ? chipColor.withValues(alpha: 0.6)
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Text(
+                        f.label,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                          color: selected ? chipColor : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
@@ -222,64 +257,30 @@ class RhuStatusScreen extends ConsumerWidget {
       };
 }
 
-class _StatPill extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  final Color color;
-
-  const _StatPill({
-    required this.label,
-    required this.sublabel,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-          Text(
-            sublabel,
-            style: TextStyle(
-              fontSize: 10.sp,
-              color: color.withValues(alpha: 0.8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MedicineStatusTile extends StatelessWidget {
+class _MedicineStatusTile extends StatefulWidget {
   final MedicineStatus medicine;
 
   const _MedicineStatusTile({required this.medicine});
 
   @override
+  State<_MedicineStatusTile> createState() => _MedicineStatusTileState();
+}
+
+class _MedicineStatusTileState extends State<_MedicineStatusTile> {
+  bool _expanded = true;
+
+  @override
   Widget build(BuildContext context) {
+    final medicine = widget.medicine;
     final color = _urgencyColor(medicine.urgency);
     final daysText = medicine.daysRemaining >= 999
-        ? '—'
+        ? 'No data'
         : medicine.daysRemaining < 1
             ? '< 1 day'
             : '${medicine.daysRemaining.toStringAsFixed(1)} days';
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
@@ -302,8 +303,7 @@ class _MedicineStatusTile extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(5),
@@ -317,51 +317,73 @@ class _MedicineStatusTile extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
-          ),
-          Gap(8.h),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: medicine.progressValue,
-              minHeight: 4.h,
-              backgroundColor: AppColors.border,
-              valueColor: AlwaysStoppedAnimation(color),
-            ),
-          ),
-          Gap(8.h),
-          Row(
-            children: [
-              Icon(Iconsax.chart, size: 11.sp, color: AppColors.textMuted),
-              Gap(4.w),
-              Text(
-                '${medicine.velocityPerDay.toStringAsFixed(1)} ${medicine.unit}/day',
-                style:
-                    TextStyle(fontSize: 11.sp, color: AppColors.textMuted),
-              ),
-              Gap(12.w),
-              Icon(Iconsax.box, size: 11.sp, color: AppColors.textMuted),
-              Gap(4.w),
-              Text(
-                '${medicine.currentStock} ${medicine.unit} on hand',
-                style:
-                    TextStyle(fontSize: 11.sp, color: AppColors.textMuted),
-              ),
-              if (medicine.breachTriggered) ...[
-                const Spacer(),
-                Icon(Iconsax.warning_2,
-                    size: 12.sp, color: AppColors.statusCritical),
-                Gap(3.w),
-                Text(
-                  'Breach',
-                  style: TextStyle(
-                    fontSize: 10.sp,
-                    color: AppColors.statusCritical,
-                    fontWeight: FontWeight.w600,
+              Gap(6.w),
+              GestureDetector(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: AnimatedRotation(
+                  turns: _expanded ? 0 : -0.5,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18.sp,
+                    color: AppColors.textMuted,
                   ),
                 ),
-              ],
+              ),
             ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _expanded
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Gap(8.h),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: medicine.progressValue,
+                          minHeight: 4.h,
+                          backgroundColor: AppColors.border,
+                          valueColor: AlwaysStoppedAnimation(color),
+                        ),
+                      ),
+                      Gap(8.h),
+                      Row(
+                        children: [
+                          Icon(Iconsax.chart, size: 11.sp, color: AppColors.textMuted),
+                          Gap(4.w),
+                          Text(
+                            '${medicine.velocityPerDay.toStringAsFixed(1)} ${medicine.unit}/day',
+                            style: TextStyle(fontSize: 11.sp, color: AppColors.textMuted),
+                          ),
+                          Gap(12.w),
+                          Icon(Iconsax.box, size: 11.sp, color: AppColors.textMuted),
+                          Gap(4.w),
+                          Text(
+                            '${medicine.currentStock} ${medicine.unit} on hand',
+                            style: TextStyle(fontSize: 11.sp, color: AppColors.textMuted),
+                          ),
+                          if (medicine.breachTriggered) ...[
+                            const Spacer(),
+                            Icon(Iconsax.warning_2,
+                                size: 12.sp, color: AppColors.statusCritical),
+                            Gap(3.w),
+                            Text(
+                              'Breach',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                color: AppColors.statusCritical,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),
