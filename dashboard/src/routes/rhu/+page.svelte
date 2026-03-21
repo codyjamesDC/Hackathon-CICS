@@ -3,10 +3,13 @@
   import { queries } from '$lib/api/queries';
   import * as Table from "$lib/components/ui/table/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
-  import { AlertTriangle, ChevronRight } from 'lucide-svelte';
+  import { AlertTriangle, ChevronRight, Search } from 'lucide-svelte';
   import { SEED_IDS } from '$lib/api/constants';
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
+  import { Input } from '$lib/components/ui/input/index.js';
   import { goto } from '$app/navigation';
+
+  let searchQuery = $state('');
 
   function relativeTime(iso: string | Date | null): string {
     if (!iso) return 'Never';
@@ -35,15 +38,28 @@
       .slice()
       .sort((a, b) => getUrgencyWeight(a.status) - getUrgencyWeight(b.status))
   );
+
+  let filteredRhus = $derived(
+    rhus.filter((rhu: any) =>
+      rhu.rhuName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      rhu.barangay.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  );
 </script>
 
 <div class="flex flex-col gap-6 flex-1 min-h-0">
-  <div>
-    <h1 class="text-3xl font-bold tracking-tight">RHU Directory</h1>
-    <p class="text-sm text-muted-foreground mt-1">Directory of monitored healthcare facilities in Nagcarlan.</p>
+  <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">RHU Directory</h1>
+      <p class="text-sm text-muted-foreground mt-1">Directory of monitored healthcare facilities in Nagcarlan.</p>
+    </div>
+    <div class="relative w-full sm:w-64">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input placeholder="Search RHU or barangay..." bind:value={searchQuery} class="pl-9" />
+    </div>
   </div>
 
-  <Card.Root class="flex flex-col flex-1 min-h-0">
+  <Card.Root class="flex flex-col flex-1 min-h-0 overflow-hidden py-0">
     <Card.Content class="p-0 flex flex-col flex-1 min-h-0">
       <Table.Root>
         <Table.Header>
@@ -75,7 +91,7 @@
               </Table.Cell>
             </Table.Row>
           {:else}
-            {#each rhus as rhu}
+            {#each filteredRhus as rhu}
               <Table.Row
                 class="hover:bg-muted/40 cursor-pointer transition-colors"
                 onclick={() => goto(`/rhu/${rhu.rhuId}`)}
@@ -113,9 +129,13 @@
                 </Table.Cell>
               </Table.Row>
             {:else}
-              <Table.Row>
-                <Table.Cell colspan={5} class="text-center text-muted-foreground h-32">
-                  No Rural Health Units registered in this municipality.
+              <Table.Row class="hover:bg-transparent">
+                <Table.Cell colspan={5} class="h-64 align-middle">
+                  <div class="flex flex-col items-center justify-center h-full text-center text-muted-foreground gap-1">
+                    <p class="text-sm">
+                      {#if searchQuery}No results for "<span class="text-foreground">{searchQuery}</span>"{:else}No Rural Health Units registered in this municipality.{/if}
+                    </p>
+                  </div>
                 </Table.Cell>
               </Table.Row>
             {/each}
