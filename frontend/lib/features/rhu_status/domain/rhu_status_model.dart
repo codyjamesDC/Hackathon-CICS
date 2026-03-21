@@ -28,12 +28,14 @@ class MedicineStatus {
     final velocity = (json['velocityPerDay'] as num?)?.toDouble() ?? 0.0;
     final breach = json['breachTriggered'] as bool? ?? false;
 
+    final threshold = (json['criticalThresholdDays'] as num?)?.toInt() ?? 7;
+
     RhuUrgency urgency;
     if (velocity == 0) {
       urgency = RhuUrgency.silent;
-    } else if (breach || days <= 3) {
+    } else if (days <= threshold) {
       urgency = RhuUrgency.critical;
-    } else if (days <= 7) {
+    } else if (days <= threshold * 2) {
       urgency = RhuUrgency.warning;
     } else {
       urgency = RhuUrgency.ok;
@@ -85,7 +87,11 @@ class RhuStatusSummary {
       RhuUrgency.unmonitored
     ];
     return [...medicines]
-      ..sort((a, b) =>
-          order.indexOf(a.urgency).compareTo(order.indexOf(b.urgency)));
+      ..sort((a, b) {
+        final statusCompare =
+            order.indexOf(a.urgency).compareTo(order.indexOf(b.urgency));
+        if (statusCompare != 0) return statusCompare;
+        return a.daysRemaining.compareTo(b.daysRemaining);
+      });
   }
 }

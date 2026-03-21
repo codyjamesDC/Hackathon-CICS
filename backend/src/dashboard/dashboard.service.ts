@@ -21,6 +21,20 @@ function deriveStatus(worstDaysRemaining: number | null, lastReportedAt: Date | 
   return 'ok';
 }
 
+function deriveMedicineStatus(
+  daysRemaining: number,
+  criticalThresholdDays: number,
+  lastReportedAt: Date | null,
+): string {
+  if (lastReportedAt) {
+    const daysSinceReport = (new Date().getTime() - lastReportedAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceReport >= 3) return 'silent';
+  }
+  if (daysRemaining <= criticalThresholdDays) return 'critical';
+  if (daysRemaining <= criticalThresholdDays * 2) return 'warning';
+  return 'ok';
+}
+
 export async function getHeatmapData(municipalityId: string) {
   // Query all RHUs in the municipality with their worst days_remaining
   const rows = await db
@@ -150,7 +164,7 @@ export async function getRhuDrilldown(rhuId: string) {
         velocityPerDay: Math.round(velocityPerDay * 100) / 100,
         daysRemaining: Math.round(daysRemaining * 100) / 100,
         criticalThresholdDays: b.criticalThresholdDays,
-        status: deriveStatus(daysRemaining, latestEntry[0]?.submittedAt ?? null),
+        status: deriveMedicineStatus(daysRemaining, b.criticalThresholdDays, latestEntry[0]?.submittedAt ?? null),
         lastEntryAt: latestEntry[0]?.submittedAt ?? null,
       };
     }),
