@@ -13,6 +13,7 @@ import { medicinesTable } from '../medicines/medicines.schema.js';
 import { thresholdBreachesTable } from '../alerts/threshold-breaches.schema.js';
 import * as stockEntriesRepository from '../stock-entries/stock-entries.repository.js';
 import * as auditService from '../audit/audit.service.js';
+import { checkForAnomaly } from '../anomaly-detection/anomaly-detection.service.js';
 import type { StockEntry } from '../stock-entries/stock-entries.schema.js';
 
 const SMOOTHING_FACTOR = 0.3;
@@ -84,6 +85,9 @@ export async function processNewEntry(entry: StockEntry): Promise<VelocityResult
 
   // 5. Upsert baseline
   await upsertBaseline(entry.rhuId, entry.medicineId, ewmaVelocity, daysRemaining);
+
+  // 5a. Anomaly check — pass pre-spike baseline directly to avoid stale-read after upsert
+  await checkForAnomaly(entry.rhuId, entry.medicineId, currentVelocity, prevAvgVelocity > 0 ? prevAvgVelocity : undefined);
 
   // 6. Check threshold breach
   const medicine = await db

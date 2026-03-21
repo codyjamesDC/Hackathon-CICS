@@ -9,3 +9,4 @@ export { thresholdBreachesTable, breachStatusEnum } from '../../alerts/threshold
 export { requisitionsTable, requisitionStatusEnum } from '../../requisitions/requisitions.schema.js';
 export { requisitionItemsTable } from '../../requisitions/requisition-items.schema.js';
 export { auditLogTable, actorTypeEnum } from '../../audit/audit-log.schema.js';
+export { anomalyAlertsTable, anomalyStatusEnum } from '../../anomaly-detection/anomaly-alerts.schema.js';

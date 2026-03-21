@@ -12,6 +12,7 @@ const db = drizzle(client, { schema });
 async function nukeDatabase() {
   console.log('Nuking existing data...');
   await db.delete(schema.auditLogTable);
+  await db.delete(schema.anomalyAlertsTable);
   await db.delete(schema.requisitionItemsTable);
   await db.delete(schema.requisitionsTable);
   await db.delete(schema.thresholdBreachesTable);
@@ -259,6 +260,44 @@ async function seed() {
     }
  
     console.log('   ✅ Done.\n');
+
+    // 6. Anomaly Alerts — seed spike events on critical RHUs
+    console.log('6. Seeding Anomaly Alerts (spike events)');
+    const anomalyRhus = rhus.filter((_, i) => i % 10 === 1 || i % 10 === 2).slice(0, 5);
+    const paracetamol = medicines.find(m => m.genericName === 'Paracetamol 500mg');
+    const amoxicillin = medicines.find(m => m.genericName === 'Amoxicillin 500mg');
+    const anomalyEntries: typeof schema.anomalyAlertsTable.$inferInsert[] = [];
+    for (const rhu of anomalyRhus) {
+      if (paracetamol) {
+        const baseline = 82;
+        const current  = baseline * (2.3 + Math.random() * 0.8);
+        anomalyEntries.push({
+          rhuId: rhu.id,
+          medicineId: paracetamol.id,
+          baselineVelocity: baseline.toFixed(4),
+          currentVelocity:  current.toFixed(4),
+          velocityRatio:    (current / baseline).toFixed(4),
+          status: 'open',
+        });
+      }
+      if (amoxicillin && anomalyEntries.length % 2 === 0) {
+        const baseline = 47;
+        const current  = baseline * (2.1 + Math.random() * 0.5);
+        anomalyEntries.push({
+          rhuId: rhu.id,
+          medicineId: amoxicillin.id,
+          baselineVelocity: baseline.toFixed(4),
+          currentVelocity:  current.toFixed(4),
+          velocityRatio:    (current / baseline).toFixed(4),
+          status: 'open',
+        });
+      }
+    }
+    if (anomalyEntries.length > 0) {
+      await db.insert(schema.anomalyAlertsTable).values(anomalyEntries);
+    }
+    console.log(`   ✅ ${anomalyEntries.length} anomaly alerts seeded.\n`);
+
     console.log('====================================================');
     console.log('Seeding Complete!');
     console.log('====================================================');

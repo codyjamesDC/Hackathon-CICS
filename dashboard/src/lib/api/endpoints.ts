@@ -96,6 +96,7 @@ export interface Alert {
   severity: 'critical' | 'warning' | 'info';
   title: string;
   message: string;
+  medicineName: string | null;
+  relatedRequisitionId: string | null;
   createdAt: string;
-  relatedEntityId?: string;
 }
