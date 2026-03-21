@@ -8,6 +8,8 @@ import * as requisitionsRepository from './requisitions.repository.js';
 import { thresholdBreachesTable } from '../alerts/threshold-breaches.schema.js';
 import * as auditService from '../audit/audit.service.js';
 import { NotFound, Conflict } from '../common/utils/exceptions.js';
+import { generateRequisitionPdf } from '../common/pdf/requisition-pdf.js';
+import { sendRequisitionEmail } from '../common/email/email.service.js';
 
 const RESTOCK_PERIOD_DAYS = 30;
 
@@ -74,6 +76,7 @@ export async function autoDraftFromBreach(
 
 /**
  * MHO one-tap approve.
+ * Generates a PDF requisition form and emails it to the configured recipient.
  */
 export async function approve(requisitionId: string, mhoUserId: string) {
   // Fetch current requisition
@@ -83,29 +86,90 @@ export async function approve(requisitionId: string, mhoUserId: string) {
     throw Conflict(`Cannot approve requisition in "${requisition.status}" state`);
   }
 
-  // Update status
+  const approvedAt = new Date();
+
+  // Update status → approved
   const updated = await requisitionsRepository.updateStatus(requisitionId, {
     status: 'approved',
-    approvedAt: new Date(),
+    approvedAt,
     approvedBy: mhoUserId,
   });
 
-  // Log to audit trail
+  // Log approval to audit trail
   await auditService.log({
     eventType: 'requisition_approved',
     actorId: mhoUserId,
     actorType: 'mho',
     entityType: 'requisition',
     entityId: requisitionId,
-    metadata: { approvedAt: new Date().toISOString() },
+    metadata: { approvedAt: approvedAt.toISOString() },
   });
 
-  console.log(
-    `[REQUISITION APPROVED] id=${requisitionId} by=${mhoUserId} — ` +
-    `Email dispatch would be triggered here`,
-  );
+  console.log(`[REQUISITION APPROVED] id=${requisitionId} by=${mhoUserId}`);
 
-  return updated;
+  // Fetch rich data (municipality, MHO name, breach date, items) for PDF
+  const rich = await requisitionsRepository.findByIdRich(requisitionId);
+  if (!rich) {
+    console.warn(`[PDF] Could not load rich data for requisition ${requisitionId} — skipping email`);
+    return updated;
+  }
+
+  // Generate PDF in memory
+  let pdfBuffer: Buffer;
+  try {
+    pdfBuffer = await generateRequisitionPdf({
+      id: requisitionId,
+      rhuName: rich.rhuName,
+      barangay: rich.barangay,
+      municipalityName: rich.municipalityName,
+      province: rich.province,
+      mhoName: rich.mhoName,
+      approvedAt,
+      items: rich.items,
+    });
+    console.log(`[PDF] Generated ${pdfBuffer.length} bytes for requisition ${requisitionId}`);
+  } catch (err) {
+    console.error(`[PDF] Generation failed for ${requisitionId}:`, err);
+    return updated;
+  }
+
+  // Dispatch email with PDF attachment
+  try {
+    await sendRequisitionEmail(pdfBuffer, {
+      id: requisitionId,
+      rhuName: rich.rhuName,
+      barangay: rich.barangay,
+      municipalityName: rich.municipalityName,
+      province: rich.province,
+      mhoName: rich.mhoName,
+      approvedAt,
+      items: rich.items,
+    });
+  } catch (err) {
+    console.error(`[EMAIL] Dispatch failed for ${requisitionId}:`, err);
+    // Non-fatal — approval succeeded, email failure is logged only
+    return updated;
+  }
+
+  // Mark as sent
+  const sent = await requisitionsRepository.updateStatus(requisitionId, {
+    status: 'sent',
+    sentAt: new Date(),
+  });
+
+  // Log email dispatch to audit trail
+  await auditService.log({
+    eventType: 'requisition_sent',
+    actorId: null,
+    actorType: 'system',
+    entityType: 'requisition',
+    entityId: requisitionId,
+    metadata: { sentAt: new Date().toISOString(), to: process.env.EMAIL_TO },
+  });
+
+  console.log(`[REQUISITION SENT] id=${requisitionId} → email dispatched`);
+
+  return sent ?? updated;
 }
 
 export async function findMany(municipalityId?: string, status?: string) {
