@@ -46,10 +46,15 @@
       const status = props.status ?? 'unknown';
       const color  = statusColor[status] ?? '#9ca3af';
       const bg     = statusBg[status]    ?? 'rgba(107,114,128,0.18)';
+      const isSilent = status === 'silent';
       const days   = props.worstDaysRemaining != null
         ? Number(props.worstDaysRemaining).toFixed(1)
         : '—';
- 
+      const daysSection = isSilent
+        ? `<div style="font-size:11px;color:rgba(255,255,255,0.35);font-style:italic;margin-top:2px;">No recent reports</div>`
+        : `<div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;">Worst Days Left</div>
+           <div style="font-size:24px;font-weight:800;color:${color};line-height:1;">${days}</div>`;
+
       return `
         <div style="min-width:160px;">
           <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.95);margin-bottom:8px;line-height:1.3;">
@@ -59,12 +64,7 @@
             <span style="width:6px;height:6px;border-radius:50%;background:${color};display:inline-block;"></span>
             <span style="font-size:10px;font-weight:700;color:${color};letter-spacing:0.07em;">${status.toUpperCase()}</span>
           </div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;">
-            Worst Days Left
-          </div>
-          <div style="font-size:24px;font-weight:800;color:${color};line-height:1;">
-            ${days}
-          </div>
+          ${daysSection}
         </div>`;
     }
  

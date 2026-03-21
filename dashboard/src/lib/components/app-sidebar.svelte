@@ -9,8 +9,14 @@
     X
   } from "lucide-svelte";
   import { page } from "$app/state";
+  import { goto } from '$app/navigation';
 
   let isOpen = $state(false);
+
+  function logout() {
+    localStorage.removeItem('agap_logged_in');
+    goto('/login');
+  }
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -60,6 +66,7 @@
     
     <!-- Logout / Footer -->
     <button 
+      onclick={logout}
       class="w-[52px] h-[52px] rounded-[1.2rem] flex items-center justify-center transition-all duration-300 group text-zinc-500 hover:bg-zinc-800 hover:text-white mb-2" 
       aria-label="Log Out" 
       title="Log Out"

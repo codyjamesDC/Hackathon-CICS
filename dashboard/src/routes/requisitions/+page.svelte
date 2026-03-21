@@ -164,7 +164,7 @@
             {/each}
           </div>
         {/if}
-
+      </div>
     </Card.Content>
   </Card.Root>
 </div>
