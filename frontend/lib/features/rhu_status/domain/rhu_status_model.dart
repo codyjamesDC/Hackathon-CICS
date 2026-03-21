@@ -9,6 +9,7 @@ class MedicineStatus {
   final double daysRemaining;
   final bool breachTriggered;
   final RhuUrgency urgency;
+  final int criticalThresholdDays;
 
   const MedicineStatus({
     required this.medicineId,
@@ -19,6 +20,7 @@ class MedicineStatus {
     required this.daysRemaining,
     required this.breachTriggered,
     required this.urgency,
+    this.criticalThresholdDays = 7,
   });
 
   factory MedicineStatus.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class MedicineStatus {
       daysRemaining: days,
       breachTriggered: breach,
       urgency: urgency,
+      criticalThresholdDays: (json['criticalThresholdDays'] as num?)?.toInt() ?? 7,
     );
   }
 

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
+import 'package:hackathon_cics/core/auth/auth_provider.dart';
 import 'package:hackathon_cics/core/theme/app_colors.dart';
 import 'package:hackathon_cics/features/rhu_status/domain/rhu_status_model.dart';
 import 'package:hackathon_cics/features/rhu_status/presentation/rhu_status_provider.dart';
+import 'package:hackathon_cics/features/rhu_status/presentation/widgets/medicine_history_chart.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -148,6 +150,8 @@ class _RhuStatusScreenState extends ConsumerState<RhuStatusScreen> {
       (urgency: RhuUrgency.ok, label: 'Stable'),
     ];
 
+    final rhuName = ref.watch(authProvider).rhuName ?? 'My RHU';
+
     return Container(
       color: AppColors.surface,
       padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 12.h),
@@ -156,9 +160,22 @@ class _RhuStatusScreenState extends ConsumerState<RhuStatusScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Expanded(
+                child: Text(
+                  rhuName,
+                  style: TextStyle(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Gap(8.w),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
                 decoration: BoxDecoration(
                   color: urgencyColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -168,8 +185,8 @@ class _RhuStatusScreenState extends ConsumerState<RhuStatusScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 7.w,
-                      height: 7.w,
+                      width: 6.w,
+                      height: 6.w,
                       decoration: BoxDecoration(
                         color: urgencyColor,
                         shape: BoxShape.circle,
@@ -179,18 +196,13 @@ class _RhuStatusScreenState extends ConsumerState<RhuStatusScreen> {
                     Text(
                       urgencyLabel,
                       style: TextStyle(
-                        fontSize: 12.sp,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w600,
                         color: urgencyColor,
                       ),
                     ),
                   ],
                 ),
-              ),
-              const Spacer(),
-              Text(
-                '${summary.medicines.length} medicines',
-                style: TextStyle(fontSize: 12.sp, color: AppColors.textMuted),
               ),
             ],
           ),
@@ -267,7 +279,7 @@ class _MedicineStatusTile extends StatefulWidget {
 }
 
 class _MedicineStatusTileState extends State<_MedicineStatusTile> {
-  bool _expanded = true;
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -279,7 +291,10 @@ class _MedicineStatusTileState extends State<_MedicineStatusTile> {
             ? '< 1 day'
             : '${medicine.daysRemaining.toStringAsFixed(1)} days';
 
-    return AnimatedContainer(
+    return GestureDetector(
+      onTap: () => setState(() => _expanded = !_expanded),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -318,9 +333,7 @@ class _MedicineStatusTileState extends State<_MedicineStatusTile> {
                 ),
               ),
               Gap(6.w),
-              GestureDetector(
-                onTap: () => setState(() => _expanded = !_expanded),
-                child: AnimatedRotation(
+              AnimatedRotation(
                   turns: _expanded ? 0 : -0.5,
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
@@ -328,7 +341,6 @@ class _MedicineStatusTileState extends State<_MedicineStatusTile> {
                     size: 18.sp,
                     color: AppColors.textMuted,
                   ),
-                ),
               ),
             ],
           ),
@@ -339,16 +351,6 @@ class _MedicineStatusTileState extends State<_MedicineStatusTile> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Gap(8.h),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: medicine.progressValue,
-                          minHeight: 4.h,
-                          backgroundColor: AppColors.border,
-                          valueColor: AlwaysStoppedAnimation(color),
-                        ),
-                      ),
                       Gap(8.h),
                       Row(
                         children: [
@@ -381,12 +383,24 @@ class _MedicineStatusTileState extends State<_MedicineStatusTile> {
                           ],
                         ],
                       ),
+                      Gap(16.h),
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(12.w),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: MedicineHistoryChart(medicine: medicine),
+                      ),
                     ],
                   )
                 : const SizedBox.shrink(),
           ),
         ],
       ),
+    ),
     );
   }
 
