@@ -116,10 +116,15 @@ async function seed() {
     // 5. Stock Entries + Baselines
     console.log('5. Injecting Procedural Telemetry (batched)');
  
-    const dayMinus14 = new Date(); dayMinus14.setDate(dayMinus14.getDate() - 14);
-    const dayMinus10 = new Date(); dayMinus10.setDate(dayMinus10.getDate() - 10);
-    const dayMinus1  = new Date(); dayMinus1.setDate(dayMinus1.getDate() - 1);
- 
+    const STEP_DAYS = 2; // entry every 2 days
+
+    function daysAgo(n: number): Date {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      d.setHours(8, 0, 0, 0);
+      return d;
+    }
+
     const targets = [
       { name: 'Amoxicillin 500mg',     baseStock: 700,  baseVel: 47 },
       { name: 'Paracetamol 500mg',     baseStock: 4000, baseVel: 82 },
@@ -197,37 +202,47 @@ async function seed() {
         let rhuOverallSeverity: 'critical' | 'warning' | 'safe' | 'silent';
         
         const mod = i % 10;
-        if (mod === 0) {
-            rhuOverallSeverity = 'silent'; 
+        if (i === 0) {
+            // Abo Health Center — fixed demo RHU must always be critical
+            rhuOverallSeverity = 'critical';
+        } else if (mod === 0) {
+            rhuOverallSeverity = 'silent';
         } else if (mod === 1 || mod === 2) {
-            rhuOverallSeverity = 'critical'; 
+            rhuOverallSeverity = 'critical';
         } else if (mod >= 3 && mod <= 5) {
-            rhuOverallSeverity = 'warning'; 
-        } else if (i === 6 || i === 7 || i === 8) {
-            // Exception: Force these 3 to be "Extra Safe"
-            rhuOverallSeverity = 'safe';
+            rhuOverallSeverity = 'warning';
         } else {
-            rhuOverallSeverity = 'safe'; 
+            rhuOverallSeverity = 'safe';
         }
 
         const isSilent = rhuOverallSeverity === 'silent';
-        const startDay = isSilent ? dayMinus14 : dayMinus14;
-        const endDay = isSilent ? dayMinus10 : dayMinus1;
-        const daysDiff = isSilent ? 4 : 13;
-        
+        // silent: entries from day-14 to day-10; others: day-14 to day-0
+        const startDaysAgo = 14;
+        const endDaysAgo   = isSilent ? 10 : 0;
+        const daysDiff     = startDaysAgo - endDaysAgo;
+
         for (let j = 0; j < targets.length; j++) {
             const target = targets[j];
             const medRecord = medicines.find(m => m.genericName === target.name);
             if (!medRecord) continue;
-            
+
             const jitterVel = 0.85 + (Math.random() * 0.3);
-            const finalVel = Math.max(1, Math.round(target.baseVel * jitterVel));
+            const finalVel  = Math.max(1, Math.round(target.baseVel * jitterVel));
             const finalStock = getFinalStock(rhuOverallSeverity, j, finalVel);
             const initialStock = finalStock + (finalVel * daysDiff);
 
-            allStockEntries.push({ rhuId: rhu.id, medicineId: medRecord.id, nurseId: nurse.id, quantityOnHand: initialStock, submittedAt: startDay, syncedAt: startDay });
-            allStockEntries.push({ rhuId: rhu.id, medicineId: medRecord.id, nurseId: nurse.id, quantityOnHand: finalStock, submittedAt: endDay, syncedAt: endDay });
-            allBaselines.push({ rhuId: rhu.id, medicineId: medRecord.id, velocity: finalVel.toFixed(4), daysRemaining: (finalStock / finalVel).toFixed(2), lastUpdated: endDay });
+            // Generate one entry every STEP_DAYS from startDaysAgo down to endDaysAgo
+            for (let dOffset = startDaysAgo; dOffset >= endDaysAgo; dOffset -= STEP_DAYS) {
+              const daysElapsed = startDaysAgo - dOffset;
+              // small per-step noise (±5% of velocity * step)
+              const noise = Math.round((Math.random() - 0.5) * finalVel * STEP_DAYS * 0.10);
+              const stock = Math.max(1, Math.round(initialStock - finalVel * daysElapsed + noise));
+              const ts = daysAgo(dOffset);
+              allStockEntries.push({ rhuId: rhu.id, medicineId: medRecord.id, nurseId: nurse.id, quantityOnHand: stock, submittedAt: ts, syncedAt: ts });
+            }
+
+            const lastTs = daysAgo(endDaysAgo);
+            allBaselines.push({ rhuId: rhu.id, medicineId: medRecord.id, velocity: finalVel.toFixed(4), daysRemaining: (finalStock / finalVel).toFixed(2), lastUpdated: lastTs });
         }
     }
  
