@@ -7,8 +7,16 @@
 
 	import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/svelte-query';
 	import { Loader2 } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	
 	const queryClient = new QueryClient();
+
+	onMount(() => {
+		if (page.url.pathname !== '/login' && !localStorage.getItem('agap_logged_in')) {
+			goto('/login');
+		}
+	});
 
 	let { children } = $props();
 
@@ -25,6 +33,11 @@
 <ModeWatcher />
 <Toaster />
 
+{#if page.url.pathname === '/login'}
+  <div class="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+    {@render children()}
+  </div>
+{:else}
 <div class="min-h-screen bg-zinc-100 dark:bg-zinc-900 flex text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-300">
 	<AppSidebar />
 	
@@ -43,15 +56,15 @@
 			</div>
 			
 			<div class="flex-1"></div>
-			<!-- Top right options can go here in the future -->
 		</header>
 		
-		<main class="flex-1 {page.url.pathname === '/' ? 'overflow-hidden' : 'p-8 pb-12 overflow-y-auto'}">
-			<div class="w-full {page.url.pathname === '/' ? 'h-screen' : 'mx-auto max-w-[1600px]'}">
+		<main class="flex-1 {page.url.pathname === '/' ? 'overflow-hidden' : 'p-8 pb-12 overflow-y-auto flex flex-col'}">
+			<div class="w-full {page.url.pathname === '/' ? 'h-screen' : 'mx-auto max-w-[1600px] flex flex-col flex-1'}">
 				{@render children()}
 			</div>
 		</main>
 	</div>
 </div>
+{/if}
 
 </QueryClientProvider>

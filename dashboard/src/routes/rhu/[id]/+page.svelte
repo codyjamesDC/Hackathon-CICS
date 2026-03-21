@@ -3,16 +3,15 @@
     MapPin, 
     Pill, 
     TrendingDown, 
-    AlertTriangle,
-    CheckCircle2,
     CalendarClock,
-    ChevronDown
+    ChevronDown,
+    Search
   } from "lucide-svelte";
   import { slide } from 'svelte/transition';
   import * as Card from "$lib/components/ui/card/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
-  import { Button } from "$lib/components/ui/button/index.js";
+  import { Input } from '$lib/components/ui/input/index.js';
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { page } from "$app/stores";
   import { createQuery } from '@tanstack/svelte-query';
@@ -179,14 +178,26 @@
 
   function formatRelativeTime(isoString: string) {
     const diffMs = Date.now() - new Date(isoString).getTime();
-    if (diffMs < 0) return 'Just now'; // Handle clock skew
+    if (diffMs < 0) return 'Just now';
     const diffMins = Math.round(diffMs / 60000);
-    if (diffMins < 60) return `${diffMins} mins ago`;
+    if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'min' : 'mins'} ago`;
     const diffHours = Math.round(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
     const diffDays = Math.round(diffHours / 24);
-    return `${diffDays} days ago`;
+    return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
   }
+
+  let searchQuery = $state('');
+
+  let sortedMedicines = $derived(
+    rhuDetail ? [...rhuDetail.medicines].sort((a: any, b: any) => (a.daysRemaining ?? 9999) - (b.daysRemaining ?? 9999)) : []
+  );
+
+  let filteredMedicines = $derived(
+    sortedMedicines.filter((m: any) =>
+      m.genericName.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  );
 </script>
 
 <div class="flex flex-col gap-6">
@@ -226,8 +237,9 @@
         <p class="text-destructive">Failed to load RHU data.</p>
       {/if}
     </div>
-    <div class="flex gap-2">
-      <Button variant="outline" disabled={!rhuDetail}>View Audit Trail</Button>
+    <div class="relative w-full sm:w-64">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input placeholder="Search medicine..." bind:value={searchQuery} class="pl-9" />
     </div>
   </div>
 
@@ -255,7 +267,7 @@
         <CalendarClock class="h-4 w-4 {daysSinceLastReport > 3 ? 'text-destructive' : 'text-emerald-500'}" />
         <span class="text-sm font-medium text-muted-foreground">Last Report:</span>
         <span class="text-sm font-bold {daysSinceLastReport > 3 ? 'text-destructive' : 'text-emerald-500'}">
-          {daysSinceLastReport === 0 ? 'Today' : `${daysSinceLastReport} days ago`}
+          {daysSinceLastReport === 0 ? 'Today' : `${daysSinceLastReport} ${daysSinceLastReport === 1 ? 'day' : 'days'} ago`}
         </span>
       </div>
     </div>
@@ -282,7 +294,7 @@
           </Table.Header>
           <Table.Body>
             {#if rhuDetail}
-              {#each rhuDetail!.medicines as med}
+              {#each filteredMedicines as med}
                 {@const isStale = (Date.now() - new Date(med.lastEntryAt).getTime()) > 3 * 24 * 60 * 60 * 1000}
                 <Table.Row 
                   onclick={() => toggleRow(med)}
@@ -291,7 +303,6 @@
                 >
                   <Table.Cell class="font-medium">
                     <div class="flex items-center gap-2">
-                      <Pill class="h-4 w-4 text-muted-foreground" />
                       <div class="flex flex-col">
                         <span>{med.genericName}</span>
                         <span class="text-xs font-normal {isStale ? 'text-destructive font-semibold' : 'text-muted-foreground'}">Reported: {formatRelativeTime(med.lastEntryAt)}</span>
@@ -311,21 +322,21 @@
                   </Table.Cell>
                   <Table.Cell class="text-center">
                     {#if med.status === 'critical'}
-                      <Badge variant="destructive" class="gap-1"><AlertTriangle class="h-3 w-3"/> Critical</Badge>
+                      <Badge variant="destructive" class="text-xs">Critical</Badge>
                     {:else if med.status === 'warning'}
-                      <Badge variant="outline" class="border-amber-500 text-amber-600 gap-1"><TrendingDown class="h-3 w-3"/> Low</Badge>
+                      <Badge variant="outline" class="border-amber-500 text-amber-500 bg-amber-500/10 text-xs">Warning</Badge>
                     {:else if med.status === 'ok'}
-                      <Badge variant="outline" class="border-emerald-500 text-emerald-600 gap-1"><CheckCircle2 class="h-3 w-3"/> Safe</Badge>
+                      <Badge variant="outline" class="border-emerald-500 text-emerald-500 bg-emerald-500/10 text-xs">Safe</Badge>
                     {:else}
                       {#if isStale}
-                        <Badge variant="destructive" class="gap-1 bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20"><AlertTriangle class="h-3 w-3"/> Silent</Badge>
+                        <Badge variant="outline" class="border-red-500/30 text-red-400 bg-red-500/5 text-xs">Silent</Badge>
                       {:else}
-                        <Badge variant="outline" class="gap-1 text-muted-foreground bg-muted">Silent</Badge>
+                        <Badge variant="outline" class="text-muted-foreground bg-muted text-xs">Silent</Badge>
                       {/if}
                     {/if}
                   </Table.Cell>
                   <Table.Cell class="text-right">
-                    <ChevronDown class="h-4 w-4 text-muted-foreground transition-transform duration-200 {selectedMedicineId === med.medicineId ? 'rotate-180' : ''}" />
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200 {selectedMedicineId === med.medicineId ? 'rotate-180 text-muted-foreground' : 'text-zinc-400'}" />
                   </Table.Cell>
                 </Table.Row>
                 
@@ -350,8 +361,14 @@
                   </Table.Row>
                 {/if}
               {:else}
-                <Table.Row>
-                  <Table.Cell colspan={6} class="text-center text-muted-foreground h-24">No medicines documented for this RHU.</Table.Cell>
+                <Table.Row class="hover:bg-transparent">
+                  <Table.Cell colspan={6} class="h-40 align-middle">
+                    <div class="flex items-center justify-center h-full text-center text-muted-foreground">
+                      <p class="text-sm">
+                        {#if searchQuery}No results for "<span class="text-foreground">{searchQuery}</span>"{:else}No medicines documented for this RHU.{/if}
+                      </p>
+                    </div>
+                  </Table.Cell>
                 </Table.Row>
               {/each}
             {:else if rhuQuery.isPending}

@@ -5,6 +5,9 @@ import { requisitionItemsTable, type NewRequisitionItem } from './requisition-it
 import { rhuTable } from '../rhu/rhu.schema.js';
 import { medicinesTable } from '../medicines/medicines.schema.js';
 import { takeFirstOrThrow } from '../common/utils/drizzle.js';
+import { municipalitiesTable } from '../users/municipalities.schema.js';
+import { usersTable } from '../users/users.schema.js';
+import { thresholdBreachesTable } from '../alerts/threshold-breaches.schema.js';
 
 /** Requisitions Repository — database queries */
 
@@ -127,4 +130,47 @@ export async function updateStatus(
     .where(eq(requisitionsTable.id, id))
     .returning();
   return rows[0];
+}
+
+/** Full requisition data needed for PDF generation — joins municipality, MHO user, breach */
+export async function findByIdRich(id: string) {
+  const rows = await db
+    .select({
+      id: requisitionsTable.id,
+      rhuName: rhuTable.name,
+      barangay: rhuTable.barangay,
+      municipalityName: municipalitiesTable.name,
+      province: municipalitiesTable.province,
+      mhoName: usersTable.name,
+      approvedAt: requisitionsTable.approvedAt,
+      projectedZeroDate: thresholdBreachesTable.projectedZeroDate,
+    })
+    .from(requisitionsTable)
+    .innerJoin(rhuTable, eq(requisitionsTable.rhuId, rhuTable.id))
+    .innerJoin(municipalitiesTable, eq(rhuTable.municipalityId, municipalitiesTable.id))
+    .leftJoin(usersTable, eq(requisitionsTable.approvedBy, usersTable.id))
+    .leftJoin(thresholdBreachesTable, eq(requisitionsTable.breachId, thresholdBreachesTable.id))
+    .where(eq(requisitionsTable.id, id));
+
+  if (!rows[0]) return null;
+  const req = rows[0];
+
+  const items = await db
+    .select({
+      genericName: medicinesTable.genericName,
+      unit: medicinesTable.unit,
+      quantityRequested: requisitionItemsTable.quantityRequested,
+      currentStock: requisitionItemsTable.currentStock,
+    })
+    .from(requisitionItemsTable)
+    .innerJoin(medicinesTable, eq(requisitionItemsTable.medicineId, medicinesTable.id))
+    .where(eq(requisitionItemsTable.requisitionId, id));
+
+  return {
+    ...req,
+    items: items.map(i => ({
+      ...i,
+      projectedZeroDate: req.projectedZeroDate ?? null,
+    })),
+  };
 }

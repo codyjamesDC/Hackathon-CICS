@@ -54,9 +54,12 @@ async function seed() {
       "Talahib", "Talangan", "Taytay", "Tipacan", "Wakat", "Yukos",
     ];
  
+    const ABO_RHU_ID   = '00000000-0000-4000-8000-000000000010';
+    const ABO_NURSE_ID  = '00000000-0000-4000-8000-000000000011';
+
     const rhus = await db.insert(schema.rhuTable).values(
-      allBarangays.map((barangay) => ({
-        id: crypto.randomUUID(),
+      allBarangays.map((barangay, idx) => ({
+        id: idx === 0 ? ABO_RHU_ID : crypto.randomUUID(),
         name: `${barangay} Health Center`,
         barangay,
         municipalityId,
@@ -69,6 +72,7 @@ async function seed() {
     // 3. Users
     console.log('3. Creating Users (MHO & 50 Nurses)');
     const [mho] = await db.insert(schema.usersTable).values({
+      id: '00000000-0000-4000-8000-000000000001',
       email: 'mho.nagcarlan@example.com',
       name: 'Dr. Maria Clara (MHO Nagcarlan)',
       role: 'mho',
@@ -78,7 +82,8 @@ async function seed() {
     const nurses: typeof schema.usersTable.$inferSelect[] = [];
     for (let i = 0; i < rhus.length; i += 20) {
       const inserted = await db.insert(schema.usersTable).values(
-        rhus.slice(i, i + 20).map((r) => ({
+        rhus.slice(i, i + 20).map((r, batchIdx) => ({
+          id: i === 0 && batchIdx === 0 ? ABO_NURSE_ID : crypto.randomUUID(),
           email: `nurse.${r.id.slice(0, 8)}@example.com`,
           name: `Nurse ${r.barangay}`,
           role: 'nurse' as const,
@@ -249,10 +254,10 @@ async function seed() {
     console.log('  ⚫ Silent   :  ~5 RHUs (10%)');
     console.log('');
     console.log('Test Scenario IDs:');
-    console.log(`- MHO_ID:          ${mho.id}`);
-    console.log(`- NURSE_ID:        ${nurses[0].id}`);
-    console.log(`- RHU_ID:          ${rhus[0].id}`);
-    console.log(`- MUNICIPALITY_ID: 00000000-0000-0000-0000-000000000002`);
+    console.log(`- MHO_ID:          ${mho.id}   (fixed)`);
+    console.log(`- NURSE_ID:        ${nurses[0].id}   (fixed — Abo nurse)`);
+    console.log(`- RHU_ID:          ${rhus[0].id}   (fixed — Abo Health Center)`);
+    console.log(`- MUNICIPALITY_ID: 00000000-0000-0000-0000-000000000002   (fixed)`);
  
   } catch (err) {
     console.error('❌ Seeding failed:', err);
