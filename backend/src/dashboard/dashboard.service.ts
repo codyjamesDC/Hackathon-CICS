@@ -134,41 +134,46 @@ export async function getRhuDrilldown(rhuId: string) {
     .innerJoin(medicinesTable, eq(consumptionBaselinesTable.medicineId, medicinesTable.id))
     .where(eq(consumptionBaselinesTable.rhuId, rhuId));
 
-  // For each medicine, get the current stock from the latest stock entry
-  const medicines = await Promise.all(
-    baselines.map(async (b) => {
-      const latestEntry = await db
-        .select({
-          quantityOnHand: stockEntriesTable.quantityOnHand,
-          submittedAt: stockEntriesTable.submittedAt,
-        })
-        .from(stockEntriesTable)
-        .where(
-          and(
-            eq(stockEntriesTable.rhuId, rhuId),
-            eq(stockEntriesTable.medicineId, b.medicineId),
-          ),
-        )
-        .orderBy(sql`${stockEntriesTable.submittedAt} DESC`)
-        .limit(1);
+  // Fetch all stock entries for this RHU in a single query to avoid connection pool exhaustion
+  const allStockEntries = await db
+    .select({
+      medicineId: stockEntriesTable.medicineId,
+      quantityOnHand: stockEntriesTable.quantityOnHand,
+      submittedAt: stockEntriesTable.submittedAt,
+    })
+    .from(stockEntriesTable)
+    .where(eq(stockEntriesTable.rhuId, rhuId))
+    .orderBy(sql`${stockEntriesTable.submittedAt} DESC`);
 
-      const daysRemaining = parseFloat(b.daysRemaining);
-      const velocityPerDay = parseFloat(b.velocity);
+  // Build a map of the latest entry per medicine. The first one encountered is the latest due to DESC ordering.
+  const latestEntriesByMed = new Map<string, { quantityOnHand: number; submittedAt: Date | null }>();
+  for (const entry of allStockEntries) {
+    if (!latestEntriesByMed.has(entry.medicineId)) {
+      latestEntriesByMed.set(entry.medicineId, {
+        quantityOnHand: Number(entry.quantityOnHand),
+        submittedAt: entry.submittedAt ? new Date(entry.submittedAt) : null,
+      });
+    }
+  }
 
-      return {
-        medicineId: b.medicineId,
-        genericName: b.genericName,
-        unit: b.unit,
-        category: b.category,
-        currentStock: latestEntry[0]?.quantityOnHand ?? 0,
-        velocityPerDay: Math.round(velocityPerDay * 100) / 100,
-        daysRemaining: Math.round(daysRemaining * 100) / 100,
-        criticalThresholdDays: b.criticalThresholdDays,
-        status: deriveMedicineStatus(daysRemaining, b.criticalThresholdDays, latestEntry[0]?.submittedAt ?? null),
-        lastEntryAt: latestEntry[0]?.submittedAt ?? null,
-      };
-    }),
-  );
+  const medicines = baselines.map((b) => {
+    const latestEntry = latestEntriesByMed.get(b.medicineId);
+    const daysRemaining = parseFloat(b.daysRemaining);
+    const velocityPerDay = parseFloat(b.velocity);
+
+    return {
+      medicineId: b.medicineId,
+      genericName: b.genericName,
+      unit: b.unit,
+      category: b.category,
+      currentStock: latestEntry?.quantityOnHand ?? 0,
+      velocityPerDay: Math.round(velocityPerDay * 100) / 100,
+      daysRemaining: Math.round(daysRemaining * 100) / 100,
+      criticalThresholdDays: b.criticalThresholdDays,
+      status: deriveMedicineStatus(daysRemaining, b.criticalThresholdDays, latestEntry?.submittedAt ?? null),
+      lastEntryAt: latestEntry?.submittedAt ?? null,
+    };
+  });
 
   return { rhu, medicines };
 }

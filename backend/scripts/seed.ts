@@ -328,6 +328,44 @@ async function seed() {
     console.log(`   ✅ ${anomalyEntries.length} anomaly alerts seeded.\n`);
     console.log(`   ✅ Summary: ${breachRows.length} breaches + ${anomalyEntries.length} anomalies ready for demo.\n`);
 
+    // 8. Requisitions
+    console.log('8. Seeding Mock Requisitions');
+    const reqsToSeed: typeof schema.requisitionsTable.$inferInsert[] = [];
+    const reqItemsToSeed: typeof schema.requisitionItemsTable.$inferInsert[] = [];
+
+    for (let i = 0; i < 8; i++) {
+      const rhu = rhus[i];
+      const reqId = crypto.randomUUID();
+      let status: 'drafted' | 'approved' | 'sent' = 'drafted';
+      if (i === 6) status = 'approved';
+      if (i === 7) status = 'sent';
+
+      reqsToSeed.push({
+        id: reqId,
+        rhuId: rhu.id,
+        status: status,
+        draftedAt: daysAgo(Math.floor(Math.random() * 5) + 1),
+        approvedAt: status !== 'drafted' ? daysAgo(1) : undefined,
+        approvedBy: status !== 'drafted' ? mho.id : undefined,
+      });
+
+      for (let m = 0; m < 3; m++) {
+        reqItemsToSeed.push({
+          id: crypto.randomUUID(),
+          requisitionId: reqId,
+          medicineId: medicines[m].id,
+          quantityRequested: 100 * (m + 1),
+          currentStock: 20 * m,
+        });
+      }
+    }
+
+    if (reqsToSeed.length > 0) {
+      await db.insert(schema.requisitionsTable).values(reqsToSeed);
+      await db.insert(schema.requisitionItemsTable).values(reqItemsToSeed);
+    }
+    console.log(`   ✅ ${reqsToSeed.length} requisitions seeded (6 drafted, 1 approved, 1 sent).\n`);
+
     console.log('====================================================');
     console.log('Seeding Complete!');
     console.log('====================================================');
